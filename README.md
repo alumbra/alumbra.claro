@@ -53,7 +53,7 @@ And a root value matching our above `QueryRoot`:
 
 Both the schema and the root value can now be supplied to the executor:
 
-```
+```clojure
 (require '[alumbra.claro :as claro])
 
 (def executor
