@@ -50,8 +50,8 @@
      :fields        (->Fields [] nil)
      :interfaces    nil
      :possibleTypes nil
-     :enumValues    nil
-     :inputFields   (->EnumValues [] nil)
+     :enumValues    (->EnumValues [] nil)
+     :inputFields   nil
      :ofType        nil}
     values))
 
