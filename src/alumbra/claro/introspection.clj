@@ -110,7 +110,12 @@
   data/Resolvable
   (resolve! [_ _]
     (when (seq fields)
-      (mapv ->Field fields))))
+      (vec
+        (keep
+          (fn [{:keys [field-name] :as field}]
+            (when (not= field-name "__typename")
+              (->Field field)))
+          fields)))))
 
 ;; ### Object Types
 
@@ -229,15 +234,22 @@
 
 ;; ## Middleware
 
+(defn- strip-introspection-fields
+  [{:keys [schema-root] :as schema}]
+  (if-let [root-type (get schema-root "query")]
+    (update-in schema [:types root-type :fields] dissoc "__schema" "__type")
+    schema))
+
 (defn wrap-introspection
   "Wrap the given engine to allow usage of [[->Schema]] and [[->Type]]
    resolvables for GraphQL schema introspection.
 
    `analyzed-schema` has to conform to `:alumbra/analyzed-schema`."
   [engine analyzed-schema]
-  (->> (fn [resolver]
-         (fn [env batch]
-           (resolver
-             (assoc env :alumbra/analyzed-schema analyzed-schema)
-             batch)))
-       (engine/wrap engine)))
+  (let [schema (strip-introspection-fields analyzed-schema)]
+    (->> (fn [resolver]
+           (fn [env batch]
+             (resolver
+               (assoc env :alumbra/analyzed-schema schema)
+               batch)))
+         (engine/wrap engine))))
