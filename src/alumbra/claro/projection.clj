@@ -90,7 +90,10 @@
     (projection/alias
       (key-fn field-alias)
       (key-fn field-name))
-    (key-fn field-name)))
+    (let [field-key (key-fn field-name)]
+      (if (not= field-key field-name)
+        (projection/alias field-name field-key)
+        field-name))))
 
 (defn- field->projection
   "Generate a projection for a single field. The result will be a map
