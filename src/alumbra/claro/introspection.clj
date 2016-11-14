@@ -11,18 +11,12 @@
 
 (declare ->Directive ->EnumValues ->Fields ->Type as-nested-type)
 
-(defmacro ^:private defrecord-
-  [type & body]
-  `(do
-     (defrecord ~type ~@body)
-     (alter-meta! (var ~(symbol (str "->" type))) assoc :private true)
-     (alter-meta! (var ~(symbol (str "map->" type))) assoc :private true)))
-
 ;; ## Schema
 
 (defn- build-schema-record
   [{:keys [schema-root type->kind directives]}]
-  {:types            (vec
+  {:__typename       "__Schema"
+   :types            (vec
                        (keep
                          (fn [[type-name kind]]
                            (when (not= kind :directive)
@@ -35,8 +29,8 @@
 
 (defrecord Schema []
   data/Resolvable
-  (resolve! [_ {:keys [alumbra/analyzed-schema]}]
-    (build-schema-record analyzed-schema)))
+  (resolve! [_ {:keys [::schema]}]
+    (build-schema-record schema)))
 
 ;; ## Types
 
@@ -45,7 +39,8 @@
 (defn- make-type-map
   [values]
   (merge
-    {:name          nil
+    {:__typename    "__Type"
+     :name          nil
      :description   nil
      :fields        (->Fields [] nil)
      :interfaces    nil
@@ -80,7 +75,8 @@
 (defn- as-argument
   [argument]
   (let [{:keys [argument-name type-description]} argument]
-    {:name         argument-name
+    {:__typename   "__InputValue"
+     :name         argument-name
      :description  nil
      :type         (as-nested-type type-description)
      ;; FIXME: default value for arguments
@@ -102,7 +98,7 @@
      :isDeprecated      false
      :deprecationReason nil}))
 
-(defrecord- Fields [fields includeDeprecated]
+(defrecord Fields [fields includeDeprecated]
   data/Resolvable
   (resolve! [_ _]
     (when (seq fields)
@@ -116,9 +112,9 @@
 ;; ### Object Types
 
 (defn- as-object-type
-  [{:keys [alumbra/analyzed-schema]} name]
+  [{:keys [::schema]} name]
   (let [{:keys [fields implements]}
-        (get-in analyzed-schema [:types name])]
+        (get-in schema [:types name])]
     (make-type-map
       {:name       name
        :kind       :OBJECT
@@ -128,9 +124,9 @@
 ;; ### Interface Types
 
 (defn as-interface-type
-  [{:keys [alumbra/analyzed-schema]} name]
+  [{:keys [::schema]} name]
   (let [{:keys [fields implemented-by]}
-        (get-in analyzed-schema [:interfaces name])]
+        (get-in schema [:interfaces name])]
     (make-type-map
       {:name          name
        :kind          :INTERFACE
@@ -140,9 +136,9 @@
 ;; ### Union Types
 
 (defn- as-union-type
-  [{:keys [alumbra/analyzed-schema]} name]
+  [{:keys [::schema]} name]
   (let [{:keys [union-types]}
-        (get-in analyzed-schema [:unions name])]
+        (get-in schema [:unions name])]
     (make-type-map
       {:name          name
        :kind          :UNION
@@ -158,32 +154,45 @@
 
 ;; ### Input Types
 
+(defn- as-input-type-fields
+  [fields]
+  (map
+    (fn [{:keys [field-name type-description]}]
+      {:__typename   "__InputValue"
+       :name         field-name
+       :description  nil
+       :type         (as-nested-type type-description)
+       ;; FIXME: default value for arguments
+       :defaultValue nil})
+    fields))
+
 (defn- as-input-type
-  [{:keys [alumbra/analyzed-schema]} name]
+  [{:keys [::schema]} name]
   (let [{:keys [fields]}
-        (get-in analyzed-schema [:input-types name])]
+        (get-in schema [:input-types name])]
     (make-type-map
       {:name          name
        :kind          :INPUT_OBJECT
-       :fields        (->Fields (vals fields) nil)})))
+       :fields        (as-input-type-fields fields)})))
 
 ;; ### Enum Types
 
-(defrecord- EnumValues [enum-values includeDeprecated]
+(defrecord EnumValues [enum-values includeDeprecated]
   data/Resolvable
   (resolve! [_ _]
     (when (seq enum-values)
       (mapv
         (fn [v]
-          {:name              v
+          {:__typename        "__EnumValue"
+           :name              v
            :description       nil
            :isDeprecated      false
            :deprecationReason nil})
         enum-values))))
 
 (defn- as-enum-type
-  [{:keys [alumbra/analyzed-schema]} name]
-  (let [enum-values (get-in analyzed-schema [:enums name])]
+  [{:keys [::schema]} name]
+  (let [enum-values (get-in schema [:enums name])]
     (make-type-map
       {:name          name
        :kind          :ENUM
@@ -192,8 +201,8 @@
 ;; ### Dispatch Resolvable
 
 (defn dispatch-type-record
-  [{:keys [alumbra/analyzed-schema] :as env} type-name]
-  (let [{:keys [type->kind]} analyzed-schema]
+  [{:keys [::schema] :as env} type-name]
+  (let [{:keys [type->kind]} schema]
     (case (type->kind type-name)
       :type       (as-object-type env type-name)
       :interface  (as-interface-type env type-name)
@@ -209,11 +218,12 @@
 
 ;; ## Directives
 
-(defrecord- Directive [name directive]
+(defrecord Directive [name directive]
   data/Resolvable
   (resolve! [_ _]
     (let [{:keys [directive-locations arguments]} directive]
-      {:name        name
+      {:typename    "__Directive"
+       :name        name
        :description nil
        :locations   (mapv
                       (fn [location]
@@ -235,12 +245,12 @@
   "Wrap the given engine to allow usage of [[->Schema]] and [[->Type]]
    resolvables for GraphQL schema introspection.
 
-   `analyzed-schema` has to conform to `:alumbra/analyzed-schema`."
+   `analyzed-schema` has to conform to `:::schema`."
   [engine analyzed-schema]
   (let [schema (strip-introspection-fields analyzed-schema)]
     (->> (fn [resolver]
            (fn [env batch]
              (resolver
-               (assoc env :alumbra/analyzed-schema schema)
+               (assoc env ::schema schema)
                batch)))
          (engine/wrap engine))))
