@@ -7,7 +7,7 @@
 
 (defn- prepare-map-keys
   "Apply `key-fn` to all keys within the given map."
-  [{:keys [key-fn] :or {key-fn keyword}} m]
+  [{:keys [key-fn]} m]
   {:pre [(map? m)]}
   (->> (for [[k v] m]
          [(key-fn k) v])
@@ -84,7 +84,7 @@
 (defn- key-for-field
   "Generate the key for the given field. Will use `key-fn` to generate it
    from the raw field name/alias string."
-  [{:keys [key-fn] :or {key-fn keyword}}
+  [{:keys [key-fn]}
    {:keys [field-name field-alias]}]
   (if (not= field-name field-alias)
     (projection/alias

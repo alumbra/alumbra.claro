@@ -1,6 +1,7 @@
 (ns alumbra.claro
   (:require [alumbra.claro
              [introspection :as introspection]
+             [keys :as keys]
              [projection :refer [operation->projection]]
              [typename :as typename]]
             [claro.data.ops :refer [then]]
@@ -33,33 +34,41 @@
 ;; ## Introspection
 
 (defn- add-introspection-resolvables
-  [{:keys [key-fn] :or {key-fn keyword}} query]
+  [query]
   (then query
         merge
-        {(key-fn "__schema") (introspection/->Schema)
-         (key-fn "__type")   (introspection/->Type nil)}))
+        {:__schema (introspection/->Schema)
+         :__type   (introspection/->Type nil)}))
 
 ;; ## Options
 
 (defn- prepare-opts
-  [opts]
+  [{:keys [wrap-key-fn]
+    :or {wrap-key-fn identity}
+    :as opts}]
   (-> opts
-      (update :query #(add-introspection-resolvables opts %))))
+      (assoc :key-fn (wrap-key-fn keys/generate-key))
+      (update :query add-introspection-resolvables)))
 
 ;; ## Execution
 
+(defn- generate-env
+  [{:keys [context-key
+           env]
+    :or {context-key :context}}
+   context]
+  (merge
+    env
+    {context-key context}))
+
 (defn- run-operation!
-  [{:keys [context-key]
-    :or {context-key :context}
-    :as opts}
-   engine
-   context
-   {:keys [operation-type] :as operation}]
+  [opts engine context {:keys [operation-type] :as operation}]
   (let [projection (operation->projection opts operation)
         root-value (get opts (keyword operation-type))
+        env        (generate-env opts context)
         result (-> root-value
                    (projection/apply projection)
-                   (engine {:env {context-key context}})
+                   (engine {:env env})
                    (deref))]
     ;; TODO: collect errors and push to top-level
     {:data result}))
@@ -82,7 +91,8 @@
    behaviour:
 
    - `:context-key`: the key within the claro `env` map to store the context at,
-   - `:key-fn`: a function applied to each field/directive/argument name,
+   - `:wrap-key-fn`: a wrapper for the key generation function, allowing you to
+     customise translation of special keys,
    - `:directive-fns`: a series of functions describing handling of directives,
    - `:conditional-fns`: a series of functions describing handling of
    conditional blocks.
@@ -91,10 +101,8 @@
    and `:directive-fns` are used to customize said projection."
   ([opts]
    (make-executor (engine/engine) opts))
-  ([base-engine {:keys [query mutation subscription schema
-                        context-key key-fn directive-fns conditional-fns]
-                 :as opts}]
-   {:pre [(some? query) (some? schema)]}
+  ([base-engine opts]
+   {:pre [(some? (:query opts)) (some? (:schema opts))]}
    (let [opts   (prepare-opts opts)
          engine (build-executor-engine opts base-engine)]
      (fn claro-executor

@@ -7,6 +7,7 @@
             :key "mit"}
   :dependencies [[org.clojure/clojure "1.9.0-alpha14" :scope "provided"]
                  [alumbra/spec "0.1.0-SNAPSHOT"]
+                 [camel-snake-kebab "0.4.0"]
                  [claro "0.2.4-SNAPSHOT"]]
   :profiles {:dev {:dependencies [[alumbra/validator "0.1.0-SNAPSHOT"]
                                   [alumbra/parser "0.1.0-SNAPSHOT"]]}}
