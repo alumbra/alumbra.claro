@@ -47,7 +47,7 @@
      :possible-types nil
      :enum-values    (->EnumValues [] nil)
      :input-fields   nil
-     :of-type         nil}
+     :of-type        nil}
     values))
 
 ;; ### Nested Types (Non-Null and List)
@@ -171,9 +171,9 @@
   (let [{:keys [fields]}
         (get-in schema [:input-types name])]
     (make-type-map
-      {:name   name
-       :kind   :INPUT_OBJECT
-       :fields (as-input-type-fields fields)})))
+      {:name         name
+       :kind         :INPUT_OBJECT
+       :input-fields (as-input-type-fields (vals fields))})))
 
 ;; ### Enum Types
 
