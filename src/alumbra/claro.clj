@@ -1,17 +1,34 @@
 (ns alumbra.claro
   (:require [alumbra.claro
              [introspection :as introspection]
-             [projection :refer [operation->projection]]]
+             [projection :refer [operation->projection]]
+             [typename :as typename]]
             [claro.data.ops :refer [then]]
             [claro.engine :as engine]
-            [claro.projection :as projection]))
+            [claro.projection :as projection]
+            [potemkin :refer [defprotocol+]]))
+
+;; ## Protocol
+
+(defprotocol+ GraphQL
+  "Protocol for attaching GraphQL information to resolvables."
+  (__typename [resolvable result]
+    "Return a value for the `__typename` field based on a resolvable
+     and its result. By default, the simple name of the resolvable
+     class is used."))
+
+(extend-protocol GraphQL
+  Object
+  (__typename [v _]
+    (.getSimpleName (class v))))
 
 ;; ## Engine
 
 (defn- build-executor-engine
   [{:keys [schema]} engine]
   (-> engine
-      (introspection/wrap-introspection schema)))
+      (introspection/wrap-introspection schema)
+      (typename/wrap-typename #(__typename %1 %2))))
 
 ;; ## Introspection
 
