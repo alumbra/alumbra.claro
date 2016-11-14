@@ -15,17 +15,17 @@
 
 (defn- build-schema-record
   [{:keys [schema-root type->kind directives]}]
-  {:__typename       "__Schema"
-   :types            (vec
-                       (keep
-                         (fn [[type-name kind]]
-                           (when (not= kind :directive)
-                             (->Type type-name)))
-                         type->kind))
-   :directives       (mapv #(apply ->Directive %) directives)
-   :queryType        (->Type (get schema-root "query"))
-   :mutationType     (some-> schema-root (get "mutation") ->Type)
-   :subscriptionType (some-> schema-root (get "subscription") ->Type)})
+  {:__typename        "__Schema"
+   :types             (vec
+                        (keep
+                          (fn [[type-name kind]]
+                            (when (not= kind :directive)
+                              (->Type type-name)))
+                          type->kind))
+   :directives        (mapv #(apply ->Directive %) directives)
+   :query-type        (->Type (get schema-root "query"))
+   :mutation-type     (some-> schema-root (get "mutation") ->Type)
+   :subscription-type (some-> schema-root (get "subscription") ->Type)})
 
 (defrecord Schema []
   data/Resolvable
@@ -39,15 +39,15 @@
 (defn- make-type-map
   [values]
   (merge
-    {:__typename    "__Type"
-     :name          nil
-     :description   nil
-     :fields        (->Fields [] nil)
-     :interfaces    nil
-     :possibleTypes nil
-     :enumValues    (->EnumValues [] nil)
-     :inputFields   nil
-     :ofType        nil}
+    {:__typename     "__Type"
+     :name           nil
+     :description    nil
+     :fields         (->Fields [] nil)
+     :interfaces     nil
+     :possible-types nil
+     :enum-values    (->EnumValues [] nil)
+     :input-fields   nil
+     :of-type         nil}
     values))
 
 ;; ### Nested Types (Non-Null and List)
@@ -58,14 +58,14 @@
         nested-type-description]
     (cond non-null?
           (make-type-map
-            {:kind   :NON_NULL
-             :ofType (as-nested-type
+            {:kind    :NON_NULL
+             :of-type (as-nested-type
                        (dissoc nested-type-description :non-null?))})
 
           type-description
           (make-type-map
-            {:kind   :LIST
-             :ofType (as-nested-type type-description)})
+            {:kind    :LIST
+             :of-type (as-nested-type type-description)})
 
           :else
           (->Type type-name))))
@@ -75,12 +75,12 @@
 (defn- as-argument
   [argument]
   (let [{:keys [argument-name type-description]} argument]
-    {:__typename   "__InputValue"
-     :name         argument-name
-     :description  nil
-     :type         (as-nested-type type-description)
+    {:__typename    "__InputValue"
+     :name          argument-name
+     :description   nil
+     :type          (as-nested-type type-description)
      ;; FIXME: default value for arguments
-     :defaultValue nil}))
+     :default-value nil}))
 
 (defn- as-arguments
   [arguments]
@@ -91,14 +91,14 @@
 (defn- as-field
   [field]
   (let[{:keys [field-name type-description arguments]} field]
-    {:name              field-name
-     :description       nil
-     :args              (as-arguments (vals arguments))
-     :type              (as-nested-type type-description)
-     :isDeprecated      false
-     :deprecationReason nil}))
+    {:name               field-name
+     :description        nil
+     :args               (as-arguments (vals arguments))
+     :type               (as-nested-type type-description)
+     :is-deprecated      false
+     :deprecation-reason nil}))
 
-(defrecord Fields [fields includeDeprecated]
+(defrecord Fields [fields include-deprecated]
   data/Resolvable
   (resolve! [_ _]
     (when (seq fields)
@@ -128,10 +128,10 @@
   (let [{:keys [fields implemented-by]}
         (get-in schema [:interfaces name])]
     (make-type-map
-      {:name          name
-       :kind          :INTERFACE
-       :fields        (->Fields (vals fields) nil)
-       :possibleTypes (mapv ->Type implemented-by)})))
+      {:name           name
+       :kind           :INTERFACE
+       :fields         (->Fields (vals fields) nil)
+       :possible-types (mapv ->Type implemented-by)})))
 
 ;; ### Union Types
 
@@ -140,9 +140,9 @@
   (let [{:keys [union-types]}
         (get-in schema [:unions name])]
     (make-type-map
-      {:name          name
-       :kind          :UNION
-       :possibleTypes (mapv ->Type union-types)})))
+      {:name           name
+       :kind           :UNION
+       :possible-types (mapv ->Type union-types)})))
 
 ;; ### Scalar Types
 
@@ -158,12 +158,12 @@
   [fields]
   (map
     (fn [{:keys [field-name type-description]}]
-      {:__typename   "__InputValue"
-       :name         field-name
-       :description  nil
-       :type         (as-nested-type type-description)
+      {:__typename    "__InputValue"
+       :name          field-name
+       :description   nil
+       :type          (as-nested-type type-description)
        ;; FIXME: default value for arguments
-       :defaultValue nil})
+       :default-value nil})
     fields))
 
 (defn- as-input-type
@@ -171,32 +171,32 @@
   (let [{:keys [fields]}
         (get-in schema [:input-types name])]
     (make-type-map
-      {:name          name
-       :kind          :INPUT_OBJECT
-       :fields        (as-input-type-fields fields)})))
+      {:name   name
+       :kind   :INPUT_OBJECT
+       :fields (as-input-type-fields fields)})))
 
 ;; ### Enum Types
 
-(defrecord EnumValues [enum-values includeDeprecated]
+(defrecord EnumValues [enum-values include-deprecated]
   data/Resolvable
   (resolve! [_ _]
     (when (seq enum-values)
       (mapv
         (fn [v]
-          {:__typename        "__EnumValue"
-           :name              v
-           :description       nil
-           :isDeprecated      false
-           :deprecationReason nil})
+          {:__typename         "__EnumValue"
+           :name               v
+           :description        nil
+           :is-deprecated      false
+           :deprecation-reason nil})
         enum-values))))
 
 (defn- as-enum-type
   [{:keys [::schema]} name]
   (let [enum-values (get-in schema [:enums name])]
     (make-type-map
-      {:name          name
-       :kind          :ENUM
-       :enumValues    (->EnumValues enum-values nil)})))
+      {:name        name
+       :kind        :ENUM
+       :enum-values (->EnumValues enum-values nil)})))
 
 ;; ### Dispatch Resolvable
 
@@ -222,7 +222,7 @@
   data/Resolvable
   (resolve! [_ _]
     (let [{:keys [directive-locations arguments]} directive]
-      {:typename    "__Directive"
+      {:__typename  "__Directive"
        :name        name
        :description nil
        :locations   (mapv
