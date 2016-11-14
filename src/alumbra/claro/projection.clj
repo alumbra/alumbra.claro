@@ -7,11 +7,16 @@
 
 (defn- prepare-map-keys
   "Apply `key-fn` to all keys within the given map."
-  [{:keys [key-fn]} m]
-  {:pre [(map? m)]}
-  (->> (for [[k v] m]
-         [(key-fn k) v])
-       (into {})))
+  [{:keys [key-fn] :as opts} m]
+  (cond (map? m)
+        (->> (for [[k v] m]
+               [(key-fn k) (prepare-map-keys opts v)])
+             (into {}))
+
+        (sequential? m)
+        (mapv #(prepare-map-keys opts %) m)
+
+        :else m))
 
 ;; ## Directives
 
