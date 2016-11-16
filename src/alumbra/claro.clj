@@ -5,8 +5,10 @@
              [projection :refer [operation->projection]]
              [typename :as typename]]
             [claro.data.ops :refer [then]]
+            [claro.data :as data]
             [claro.engine :as engine]
             [claro.projection :as projection]
+            [clojure.walk :as w]
             [potemkin :refer [defprotocol+]]))
 
 ;; ## Protocol
@@ -61,6 +63,23 @@
     env
     {context-key context}))
 
+(defn- finalize
+  [result]
+  (let [v (volatile! [])
+        data (w/prewalk
+               (fn [x]
+                 (if (data/error? x)
+                   (do (vswap! v conj x) nil)
+                   x))
+               result)]
+    {:data   data
+     :errors (mapv
+               (fn [error]
+                 (let [context (data/error-data error)]
+                   (cond-> {:message (data/error-message error)}
+                     context (assoc :context context))))
+               @v)}))
+
 (defn- run-operation!
   [opts engine context {:keys [operation-type] :as operation}]
   (let [projection (operation->projection opts operation)
@@ -70,8 +89,7 @@
                    (projection/apply projection)
                    (engine {:env env})
                    (deref))]
-    ;; TODO: collect errors and push to top-level
-    {:data result}))
+    (finalize result)))
 
 ;; ## Executor Creation
 
