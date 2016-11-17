@@ -13,8 +13,14 @@
 
 ;; ## Schema
 
+(defn- type-for-operation
+  [schema k]
+  (some-> schema
+          (get-in [:schema-root :schema-root-types k])
+          (->Type)))
+
 (defn- build-schema-record
-  [{:keys [schema-root type->kind directives]}]
+  [{:keys [type->kind directives] :as schema}]
   {:__typename        "__Schema"
    :types             (vec
                         (keep
@@ -23,9 +29,9 @@
                               (->Type type-name)))
                           type->kind))
    :directives        (mapv #(apply ->Directive %) directives)
-   :query-type        (->Type (get schema-root "query"))
-   :mutation-type     (some-> schema-root (get "mutation") ->Type)
-   :subscription-type (some-> schema-root (get "subscription") ->Type)})
+   :query-type        (type-for-operation schema "query")
+   :mutation-type     (type-for-operation schema "mutation")
+   :subscription-type (type-for-operation schema "subscription")})
 
 (defrecord Schema []
   data/Resolvable
@@ -192,7 +198,7 @@
 
 (defn- as-enum-type
   [{:keys [::schema]} name]
-  (let [enum-values (get-in schema [:enums name])]
+  (let [{:keys [enum-values]} (get-in schema [:enums name])]
     (make-type-map
       {:name        name
        :kind        :ENUM
@@ -236,8 +242,8 @@
 ;; ## Middleware
 
 (defn- strip-introspection-fields
-  [{:keys [schema-root] :as schema}]
-  (if-let [root-type (get schema-root "query")]
+  [schema]
+  (if-let [root-type (get-in schema [:schema-root :schema-root-type "query"])]
     (update-in schema [:types root-type :fields] dissoc "__schema" "__type")
     schema))
 
