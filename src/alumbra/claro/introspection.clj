@@ -243,7 +243,7 @@
 
 (defn- strip-introspection-fields
   [schema]
-  (if-let [root-type (get-in schema [:schema-root :schema-root-type "query"])]
+  (if-let [root-type (get-in schema [:schema-root :schema-root-types "query"])]
     (update-in schema [:types root-type :fields] dissoc "__schema" "__type")
     schema))
 
