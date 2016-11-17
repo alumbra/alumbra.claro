@@ -58,19 +58,17 @@
 ;; ## Type Conditions
 
 (defn- process-type-condition
-  "Use the given `conditional-fns` to wrap the current projection to only
-   apply to the given (GraphQL) type.
+  "Wrap the given projection to only apply to the given (GraphQL) types. This
+   requires the `:__typename` field to be given within the result.
 
    Note that canonicalization should probably already remove fragments
    that reference the current scope type or one of its interfaces/unions."
-  [{:keys [conditional-fns]} {:keys [type-condition]} projection]
-  (if type-condition
-    (if-let [conditional-fn (get conditional-fns type-condition)]
-      (conditional-fn projection)
-      (throw
-        (IllegalArgumentException.
-          (str "no conditional projection function given for type '"
-               type-condition "'!"))))
+  [opts {:keys [type-condition]} projection]
+  (if (seq type-condition)
+    (projection/conditional
+      (projection/extract :__typename)
+      (set type-condition)
+      projection)
     projection))
 
 ;; ## Fields
