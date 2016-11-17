@@ -111,12 +111,20 @@
    - `:context-key`: the key within the claro `env` map to store the context at,
    - `:wrap-key-fn`: a wrapper for the key generation function, allowing you to
      customise translation of special keys,
-   - `:directive-fns`: a series of functions describing handling of directives,
-   - `:conditional-fns`: a series of functions describing handling of
-   conditional blocks.
+   - `:directive-handlers`: a map associating directive names (without `@`) with
+     projection transformation functions.
 
-   Internally, a projection is generated from the query. Both `:conditional-fns`
-   and `:directive-fns` are used to customize said projection."
+   Internally, a projection is generated from the query. `:directive-handlers`
+   will be used to customize said projection. For example, the `@skip` directive
+   could be implemented as follows:
+
+   ```clojure
+   (defn skip-handler
+     [projection arguments]
+     (if (:if arguments)
+       projection))
+   ```
+   "
   ([opts]
    (make-executor (engine/engine) opts))
   ([base-engine opts]
