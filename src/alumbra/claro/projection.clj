@@ -122,7 +122,7 @@
            (field->projection opts selection)
            (block->projection opts selection)))
        (filter some?)
-       (projection/union*)))
+       (projection/merge*)))
 
 ;; ## Conditional Blocks
 
