@@ -6,9 +6,9 @@
             :year 2016
             :key "mit"}
   :dependencies [[org.clojure/clojure "1.9.0-alpha14" :scope "provided"]
-                 [alumbra/spec "0.1.0-SNAPSHOT"]
+                 [alumbra/spec "0.1.2" :scope "provided"]
                  [camel-snake-kebab "0.4.0"]
-                 [claro "0.2.4"]]
-  :profiles {:dev {:dependencies [[alumbra/validator "0.1.0-SNAPSHOT"]
-                                  [alumbra/parser "0.1.0-SNAPSHOT"]]}}
+                 [claro "0.2.5"]]
+  :profiles {:dev {:dependencies [[alumbra/parser "0.1.2"]
+                                  [alumbra/analyzer "0.1.2"]]}}
   :pedantic? :abort)
