@@ -55,13 +55,8 @@
 ;; ## Execution
 
 (defn- generate-env
-  [{:keys [context-key
-           env]
-    :or {context-key :context}}
-   context]
-  (merge
-    env
-    {context-key context}))
+  [{base-env :env :or {base-env {}}} env]
+  (merge base-env env))
 
 (defn- finalize
   [result]
@@ -81,10 +76,10 @@
                @v)}))
 
 (defn- run-operation!
-  [opts engine context {:keys [operation-type] :as operation}]
+  [opts engine env {:keys [operation-type] :as operation}]
   (let [projection (operation->projection opts operation)
         root-value (get opts (keyword operation-type))
-        env        (generate-env opts context)
+        env        (generate-env opts env)
         result (-> root-value
                    (projection/apply projection)
                    (engine {:env env})
@@ -95,20 +90,21 @@
 
 (defn make-executor
   "Generate a claro-based executor for an operation conforming to
-   `:alumbra/canonical-operation`. Introspection can be done based on
-   the required `:schema` key which needs to conform to
-   `:alumbra/analyzed-schema`.
+   `:alumbra/canonical-operation`.
+
+   - `:schema` (__required__): a value conforming to `:alumbra/analyzed-schema`
+     used for exposing introspection facilities.
+   - `:env`: a base environment map to be based to claro resolvables.
 
    The following resolvables can be given in `opts`:
 
-   - `:query` (__required__): the root resolvable for query operations,
-   - `:mutation`: the root resolvable for mutation operations,
-   - `:subscription`: the root resolvable for subscription operations.
+   - `:query` (__required__): the root map for query operations,
+   - `:mutation`: the root map for mutation operations,
+   - `:subscription`: the root map for subscription operations.
 
    The following options can additionally be given to customize the executor
    behaviour:
 
-   - `:context-key`: the key within the claro `env` map to store the context at,
    - `:wrap-key-fn`: a wrapper for the key generation function, allowing you to
      customise translation of special keys,
    - `:directive-handlers`: a map associating directive names (without `@`) with
@@ -124,7 +120,9 @@
      (if (:if arguments)
        projection))
    ```
-   "
+
+   The resulting function will take an optional environment map (to be merged
+   into the base one) and the canonical operation to resolve."
   ([opts]
    (make-executor (engine/engine) opts))
   ([base-engine opts]
@@ -132,5 +130,7 @@
    (let [opts   (prepare-opts opts)
          engine (build-executor-engine opts base-engine)]
      (fn claro-executor
-       [context operation]
-       (run-operation! opts engine context operation)))))
+       ([operation]
+        (claro-executor {} operation))
+       ([env operation]
+        (run-operation! opts engine env operation))))))

@@ -20,13 +20,15 @@ First, we need an [analyzed][alumbra-analyzer] GraphQL schema describing our
 resolvables:
 
 ```clojure
-(require '[alumbra.analyzer :as analyzer])
+(require '[alumbra.analyzer :as analyzer]
+         '[alumbra.parser :as parser])
 
 (def schema
   (analyzer/analyze-schema
     "type Person { id: ID!, name: String!, friends: [Person!] }
      type QueryRoot { person(id: ID!): Person }
-     schema { query: QueryRoot }"))
+     schema { query: QueryRoot }"
+    parser/parse-schema))
 ```
 
 [alumbra-analyzer]: https://github.com/alumbra/alumbra.validator
@@ -44,7 +46,7 @@ Then, we create our resolvables, e.g.:
      :friends (map ->Person (range (inc id) (+ id 10) 2))}))
 ```
 
-And a root value matching our above `QueryRoot`:
+And a map matching our above `QueryRoot`:
 
 ```clojure
 (def QueryRoot
@@ -62,9 +64,8 @@ Both the schema and the root value can now be supplied to the executor:
      :query  QueryRoot}))
 ```
 
-The result is a function taking a context value (to be injected into the claro
- environment) and a canonical operation, producing a map of `:data` and
-`:errors` based on the resolution result.
+The result is a function taking an environment map and a canonical operation,
+producing a map of `:data` and `:errors` based on the resolution result.
 
 ## License
 
