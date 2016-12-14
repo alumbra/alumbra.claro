@@ -89,14 +89,10 @@
    from the raw field name/alias string."
   [{:keys [key-fn]}
    {:keys [field-name field-alias]}]
-  (if (not= field-name field-alias)
-    (projection/alias
-      (key-fn field-alias)
-      (key-fn field-name))
-    (let [field-key (key-fn field-name)]
-      (if (not= field-key field-name)
-        (projection/alias field-name field-key)
-        field-name))))
+  (let [field-key (key-fn field-name)]
+    (cond (not= field-name field-alias) (projection/alias field-alias field-key)
+          (not= field-key field-name)   (projection/alias field-name field-key)
+          :else field-key)))
 
 (defn- field->projection
   "Generate a projection for a single field. The result will be a map
