@@ -129,7 +129,10 @@
   ([opts]
    (make-executor (engine/engine) opts))
   ([base-engine opts]
-   {:pre [(some? (:query opts)) (some? (:schema opts))]}
+   {:pre [(map? (:query opts))
+          (or (nil? (:mutation opts)) (map? (:mutation opts)))
+          (or (nil? (:subscription opts)) (map? (:subscription opts)))
+          (some? (:schema opts))]}
    (let [opts   (prepare-opts opts)
          engine (build-executor-engine opts base-engine)]
      (fn claro-executor
