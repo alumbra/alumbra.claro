@@ -97,7 +97,8 @@
 (defn- as-field
   [field]
   (let[{:keys [field-name type-description arguments]} field]
-    {:name               field-name
+    {:__typename         "__Field"
+     :name               field-name
      :description        nil
      :args               (as-arguments (vals arguments))
      :type               (as-nested-type type-description)
