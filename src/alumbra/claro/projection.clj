@@ -113,12 +113,14 @@
 (defn- selection-set->projection
   "Generate a projection for a value containing a selection set."
   [opts {:keys [selection-set]}]
-  (->> (for [selection selection-set]
-         (if (field? selection)
-           (field->projection opts selection)
-           (block->projection opts selection)))
-       (filter some?)
-       (projection/merge*)))
+  (if-let [templates (seq (keep
+                            (fn [selection]
+                              (if (field? selection)
+                                (field->projection opts selection)
+                                (block->projection opts selection)))
+                            selection-set))]
+    (projection/merge* templates)
+    {}))
 
 ;; ## Conditional Blocks
 
