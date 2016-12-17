@@ -24,7 +24,7 @@
   "Alter the currently processed projection using the given directive."
   [{:keys [directive-handlers] :as opts}
    projection
-   [directive-name {:keys [arguments]}]]
+   {:keys [directive-name arguments]}]
   (if-let [directive-fn (get directive-handlers directive-name)]
     (->> (prepare-map-keys opts arguments)
          (directive-fn projection))
@@ -100,8 +100,8 @@
   [opts field]
   (some->> (field-spec->projection opts field)
            (process-arguments opts field)
-           (process-directives opts field)
-           (hash-map (key-for-field opts field))))
+           (hash-map (key-for-field opts field))
+           (process-directives opts field)))
 
 ;; ## Selection Set
 
