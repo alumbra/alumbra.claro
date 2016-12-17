@@ -1,5 +1,6 @@
 (ns alumbra.claro
   (:require [alumbra.claro
+             [directives :as directives]
              [introspection :as introspection]
              [keys :as keys]
              [projection :refer [operation->projection]]
@@ -51,7 +52,8 @@
     :as opts}]
   (-> opts
       (assoc :key-fn (wrap-key-fn keys/generate-key))
-      (update :query add-introspection-resolvables schema)))
+      (update :query add-introspection-resolvables schema)
+      (update :directive-handlers directives/merge-defaults)))
 
 ;; ## Execution
 
@@ -118,7 +120,7 @@
    ```clojure
    (defn skip-handler
      [projection arguments]
-     (if (:if arguments)
+     (if-not (:if arguments)
        projection))
    ```
 
