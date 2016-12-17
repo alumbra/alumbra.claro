@@ -9,6 +9,8 @@
                  [alumbra/spec "0.1.2" :scope "provided"]
                  [camel-snake-kebab "0.4.0"]
                  [claro "0.2.5"]]
-  :profiles {:dev {:dependencies [[alumbra/parser "0.1.2"]
-                                  [alumbra/analyzer "0.1.2"]]}}
+  :profiles {:dev {:dependencies [[org.clojure/test.check "0.9.0"]
+                                  [alumbra/parser "0.1.2"]
+                                  [alumbra/analyzer "0.1.2"]
+                                  [alumbra/generators "0.2.2"]]}}
   :pedantic? :abort)
