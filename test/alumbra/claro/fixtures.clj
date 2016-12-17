@@ -1,6 +1,7 @@
 (ns alumbra.claro.fixtures
   (:require [alumbra.analyzer :as analyzer]
             [alumbra.parser :as parser]
+            [alumbra.claro :as claro]
             [claro.data :as data]))
 
 ;; ## Schema
@@ -73,3 +74,15 @@
 (def QueryRoot
   {:me         (->Person "Me")
    :all-people (->AllPeople)})
+
+;; ## Execute
+
+(def execute!
+  (let [f (claro/make-executor
+          {:schema schema
+           :query  QueryRoot})]
+    (fn [query & [context]]
+      (->> query
+           (parse)
+           (canonicalize)
+           (f context)))))
