@@ -215,7 +215,8 @@
       :union      (as-union-type env type-name)
       :scalar     (as-scalar-type env type-name)
       :enum       (as-enum-type env type-name)
-      :input-type (as-input-type env type-name))))
+      :input-type (as-input-type env type-name)
+      nil)))
 
 (defrecord Type [name]
   data/Resolvable
