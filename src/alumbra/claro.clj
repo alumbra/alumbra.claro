@@ -36,21 +36,22 @@
 ;; ## Introspection
 
 (defn- add-introspection-resolvables
-  [query]
+  [query {:keys [schema-root]}]
   (then query
         merge
-        {:__schema (introspection/->Schema)
-         :__type   (introspection/->Type nil)}))
+        {:__schema   (introspection/->Schema)
+         :__type     (introspection/->Type nil)
+         :__typename (get-in schema-root [:schema-root-types "query"])}))
 
 ;; ## Options
 
 (defn- prepare-opts
-  [{:keys [wrap-key-fn]
+  [{:keys [wrap-key-fn schema]
     :or {wrap-key-fn identity}
     :as opts}]
   (-> opts
       (assoc :key-fn (wrap-key-fn keys/generate-key))
-      (update :query add-introspection-resolvables)))
+      (update :query add-introspection-resolvables schema)))
 
 ;; ## Execution
 
