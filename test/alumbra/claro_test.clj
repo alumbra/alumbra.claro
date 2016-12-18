@@ -8,7 +8,7 @@
 (def gen-operation
   (alumbra-gen/operation fix/schema))
 
-(defspec t-projection-generation 500
+(defspec t-execution 500
   (prop/for-all
     [operation-string (gen-operation :query)]
     (map? (fix/execute! operation-string))))
