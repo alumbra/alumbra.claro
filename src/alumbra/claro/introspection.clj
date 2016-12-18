@@ -258,7 +258,9 @@
   (let [schema (strip-introspection-fields analyzed-schema)]
     (->> (fn [resolver]
            (fn [env batch]
-             (resolver
-               (assoc env ::schema schema)
-               batch)))
+             (if (#{Schema Type Directive} (class (first batch)))
+               (resolver
+                 (assoc env ::schema schema)
+                 batch)
+               (resolver env batch))))
          (engine/wrap engine))))
