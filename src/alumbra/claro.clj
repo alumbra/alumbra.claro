@@ -69,14 +69,15 @@
                  (if (data/error? x)
                    (do (vswap! v conj x) nil)
                    x))
-               result)]
-    {:data   data
-     :errors (mapv
-               (fn [error]
-                 (let [context (data/error-data error)]
-                   (cond-> {:message (data/error-message error)}
-                     context (assoc :context context))))
-               @v)}))
+               result)
+        errors (mapv
+                 (fn [error]
+                   (let [context (data/error-data error)]
+                     (cond-> {:message (data/error-message error)}
+                       context (assoc :context context))))
+                 @v)]
+    (cond-> {:data data}
+      (seq errors) (assoc :errors errors))))
 
 (defn- run-operation!
   [opts engine env {:keys [operation-type] :as operation}]
