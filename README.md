@@ -16,13 +16,19 @@ function to expose claro resolvables using a [GraphQL][graphql] HTTP endpoint.
 
 ## Quickstart
 
-First, we need an [analyzed][alumbra-analyzer] GraphQL schema describing our
-resolvables:
+### Executor Construction
 
 ```clojure
 (require '[alumbra.analyzer :as analyzer]
-         '[alumbra.parser :as parser])
+         '[alumbra.parser :as parser]
+         '[alumbra.claro :as claro])
+```
 
+An executor is based on a GraphQL schema which can be constructed by
+using e.g. alumbra's own [analyzer][alumbra-analyzer] and
+[parser][alumbra-parser]:
+
+```clojure
 (def schema
   (analyzer/analyze-schema
     "type Person { id: ID!, name: String!, friends: [Person!] }
@@ -31,41 +37,58 @@ resolvables:
     parser/parse-schema))
 ```
 
-[alumbra-analyzer]: https://github.com/alumbra/alumbra.validator
+[alumbra-analyzer]: https://github.com/alumbra/alumbra.analyzer
+[alumbra-parser]: https://github.com/alumbra/alumbra.parser
 
-Then, we create our resolvables, e.g.:
+Now, we define our [claro][claro] resolvables, ideally one for each non-root
+type declared in our schema:
 
 ```clojure
 (require '[claro.data :as data])
 
 (defrecord Person [id]
   data/Resolvable
-  (resolve! [_ _]
-    {:id      id
-     :name    (str "Person #" id)
-     :friends (map ->Person (range (inc id) (+ id 10) 2))}))
+  (resolve! [_ {:keys [db]}]
+    ...))
 ```
 
-And a map matching our above `QueryRoot`:
+The root types have to be given as plain maps of resolvables, e.g. for our
+`QueryRoot`:
 
 ```clojure
 (def QueryRoot
   {:person (->Person nil)})
 ```
 
-Both the schema and the root value can now be supplied to the executor:
+A minimal executor can now be constructed using:
 
 ```clojure
-(require '[alumbra.claro :as claro])
-
 (def executor
-  (claro/make-executor
+  (claro/executor
     {:schema schema
+     :env    {:db ...}
      :query  QueryRoot}))
 ```
 
-The result is a function taking an environment map and a canonical operation,
-producing a map of `:data` and `:errors` based on the resolution result.
+### Executor Usage
+
+An executor is a function taking a context map, as well as a _canonicalized_
+operation, producing a result map with `:data` and optionally `:errors` keys.
+
+```clojure
+(->> "{ person(id: \"ID\") { name } }"
+     (parser/parse-document)
+     (analyzer/canonicalize-operation schema)
+     (executor {:session ...}))
+;; => {:data ..., :errors ...}
+```
+
+The context map (`{:session ...}` in this case) will be merged into the claro
+environment supplied to resolvables. Note that you should validate the GraphQL
+document between parsing and canonicalization, e.g. using alumbra's
+[validator][alumbra-validator].
+
+[alumbra-validator]: https://github.com/alumbra/alumbra.validator
 
 ## License
 
