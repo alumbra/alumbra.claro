@@ -78,7 +78,7 @@
 ;; ## Execute
 
 (def execute!
-  (let [f (claro/make-executor
+  (let [f (claro/executor
           {:schema schema
            :query  QueryRoot})]
     (fn [query & [context]]

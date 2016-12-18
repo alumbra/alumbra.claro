@@ -92,7 +92,7 @@
 
 ;; ## Executor Creation
 
-(defn make-executor
+(defn executor
   "Generate a claro-based executor for an operation conforming to
    `:alumbra/canonical-operation`.
 
@@ -128,7 +128,7 @@
    The resulting function will take an optional environment map (to be merged
    into the base one) and the canonical operation to resolve."
   ([opts]
-   (make-executor (engine/engine) opts))
+   (executor (engine/engine) opts))
   ([base-engine opts]
    {:pre [(map? (:query opts))
           (or (nil? (:mutation opts)) (map? (:mutation opts)))
