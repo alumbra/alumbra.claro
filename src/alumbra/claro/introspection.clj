@@ -34,6 +34,7 @@
    :subscription-type (type-for-operation schema "subscription")})
 
 (defrecord Schema []
+  data/PureResolvable
   data/Resolvable
   (resolve! [_ {:keys [::schema]}]
     (build-schema-record schema)))
@@ -106,6 +107,7 @@
      :deprecation-reason nil}))
 
 (defrecord Fields [fields include-deprecated]
+  data/PureResolvable
   data/Resolvable
   (resolve! [_ _]
     (when (seq fields)
@@ -185,6 +187,7 @@
 ;; ### Enum Types
 
 (defrecord EnumValues [enum-values include-deprecated]
+  data/PureResolvable
   data/Resolvable
   (resolve! [_ _]
     (when (seq enum-values)
@@ -220,6 +223,7 @@
       nil)))
 
 (defrecord Type [name]
+  data/PureResolvable
   data/Resolvable
   (resolve! [_ env]
     (dispatch-type-record env name)))
@@ -227,6 +231,7 @@
 ;; ## Directives
 
 (defrecord Directive [name directive]
+  data/PureResolvable
   data/Resolvable
   (resolve! [_ _]
     (let [{:keys [directive-locations arguments]} directive]
