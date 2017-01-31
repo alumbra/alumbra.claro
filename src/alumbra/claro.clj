@@ -29,7 +29,8 @@
 ;; ## Engine
 
 (defn- build-executor-engine
-  [{:keys [schema]} engine]
+  [{:keys [schema engine]
+    :or {engine (engine/engine)}}]
   (-> engine
       (introspection/wrap-introspection schema)
       (typename/wrap-typename #(__typename %1 %2))))
@@ -99,6 +100,7 @@
    - `:schema` (__required__): a value conforming to `:alumbra/analyzed-schema`
      used for exposing introspection facilities.
    - `:env`: a base environment map to be based to claro resolvables.
+   - `:engine`: a claro engine to be used for resolution.
 
    The following resolvables can be given in `opts`:
 
@@ -127,17 +129,15 @@
 
    The resulting function will take an optional environment map (to be merged
    into the base one) and the canonical operation to resolve."
-  ([opts]
-   (executor (engine/engine) opts))
-  ([base-engine opts]
-   {:pre [(map? (:query opts))
-          (or (nil? (:mutation opts)) (map? (:mutation opts)))
-          (or (nil? (:subscription opts)) (map? (:subscription opts)))
-          (some? (:schema opts))]}
-   (let [opts   (prepare-opts opts)
-         engine (build-executor-engine opts base-engine)]
-     (fn claro-executor
-       ([operation]
-        (claro-executor {} operation))
-       ([env operation]
-        (run-operation! opts engine env operation))))))
+  [opts]
+  {:pre [(map? (:query opts))
+         (or (nil? (:mutation opts)) (map? (:mutation opts)))
+         (or (nil? (:subscription opts)) (map? (:subscription opts)))
+         (some? (:schema opts))]}
+  (let [opts   (prepare-opts opts)
+        engine (build-executor-engine opts)]
+    (fn claro-executor
+      ([operation]
+       (claro-executor {} operation))
+      ([env operation]
+       (run-operation! opts engine env operation)))))
