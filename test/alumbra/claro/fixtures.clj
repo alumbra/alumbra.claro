@@ -7,7 +7,8 @@
 ;; ## Schema
 
 (def schema
-  (-> "type Person { name: String!, pets: [Pet!] }
+  (-> "enum Emotion { HAPPY HAPPIER THE_HAPPIEST }
+       type Person { name: String!, pets: [Pet!], emotion: Emotion! }
        interface Pet { name: String! }
        type HouseCat implements Pet { name: String!, owner: Person!, meowVolume: Int }
        type HouseDog implements Pet { name: String!, owner: Person!, barkVolume: Int }
@@ -41,6 +42,7 @@
   data/Resolvable
   (resolve! [_ _]
     {:name name,
+     :emotion (rand-nth [:happy :happier :the-happiest])
      :pets (distinct
              (repeatedly (count name)
                          #(->Animal (rand-animal-name))))}))

@@ -1,5 +1,6 @@
 (ns alumbra.claro.projection
-  (:require [claro.projection :as projection]))
+  (:require [alumbra.claro.coercion :as c]
+            [claro.projection :as projection]))
 
 (declare block->projection)
 
@@ -73,13 +74,19 @@
 
 ;; ## Fields
 
+(defn- coerced-leaf
+  [opts  {:keys [type-name]}]
+  (if-let [coercer (c/output-coercer opts type-name)]
+    (projection/transform coercer projection/leaf)
+    projection/leaf))
+
 (defn- field-spec->projection
   "Generate a projection for a `:alumbra.spec.canonical-operation/field-spec`
    value."
   [opts {:keys [field-type non-null? field-spec] :as spec}]
   (cond->
     (case field-type
-      :leaf   projection/leaf
+      :leaf   (coerced-leaf opts spec)
       :object (block->projection opts spec)
       :list   [(field-spec->projection opts field-spec)])
     (not non-null?) projection/maybe))

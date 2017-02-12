@@ -101,7 +101,7 @@
     (is (= {"name" "QueryRoot"} queryType))
     (is (nil? mutationType))
     (is (nil? subscriptionType))
-    (is (= #{"Boolean" "Cat" "Dog" "Float" "HouseCat"
+    (is (= #{"Boolean" "Cat" "Dog" "Emotion" "Float" "HouseCat"
              "HouseDog" "ID" "Int" "Person" "Pet"
              "QueryRoot" "String" "__Directive" "__DirectiveLocation"
              "__EnumValue" "__Field" "__InputValue" "__Schema"
