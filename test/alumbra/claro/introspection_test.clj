@@ -102,7 +102,7 @@
     (is (nil? mutationType))
     (is (nil? subscriptionType))
     (is (= #{"Boolean" "Cat" "Dog" "Emotion" "Float" "HouseCat"
-             "HouseDog" "ID" "Int" "Person" "Pet"
+             "HouseDog" "ID" "Int" "Person" "Pet" "Combined"
              "QueryRoot" "String" "__Directive" "__DirectiveLocation"
              "__EnumValue" "__Field" "__InputValue" "__Schema"
              "__Type" "__TypeKind"}

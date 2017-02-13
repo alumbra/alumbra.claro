@@ -1,23 +1,10 @@
 (ns alumbra.claro.projection
-  (:require [alumbra.claro.coercion :as c]
+  (:require [alumbra.claro
+             [coercion :as c]
+             [values :as v]]
             [claro.projection :as projection]))
 
 (declare block->projection)
-
-;; ## Helpers
-
-(defn- prepare-map-keys
-  "Apply `key-fn` to all keys within the given map."
-  [{:keys [key-fn] :as opts} m]
-  (cond (map? m)
-        (->> (for [[k v] m]
-               [(key-fn k) (prepare-map-keys opts v)])
-             (into {}))
-
-        (sequential? m)
-        (mapv #(prepare-map-keys opts %) m)
-
-        :else m))
 
 ;; ## Directives
 
@@ -27,7 +14,8 @@
    projection
    {:keys [directive-name arguments]}]
   (if-let [directive-fn (get directive-handlers directive-name)]
-    (->> (prepare-map-keys opts arguments)
+    (->> arguments
+         (v/process-arguments opts)
          (directive-fn projection))
     (throw
       (IllegalArgumentException.
@@ -52,7 +40,7 @@
   "Attach the given arguments to the currently processed projection."
   [opts {:keys [arguments]} projection]
   (if (seq arguments)
-    (-> (prepare-map-keys opts arguments)
+    (-> (v/process-arguments opts arguments)
         (projection/parameters projection))
     projection))
 

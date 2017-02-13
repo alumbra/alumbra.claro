@@ -14,7 +14,24 @@
        type HouseDog implements Pet { name: String!, owner: Person!, barkVolume: Int }
        type Cat implements Pet { name: String!, meowVolume: Int }
        type Dog implements Pet { name: String!, barkVolume: Int }
-       type QueryRoot { me: Person!, allPeople: [Person!] }
+       type Combined {
+         id: ID!
+         int: Int!
+         string: String!
+         float: Float!
+         bool: Boolean!
+         enum: Emotion!
+       }
+       type QueryRoot {
+         me: Person!,
+         allPeople: [Person!],
+         combine(id: ID!,
+                 int: Int!,
+                 string: String!,
+                 float: Float!
+                 bool: Boolean!
+                 enum: Emotion!): Combined!
+       }
        schema { query: QueryRoot }"
       (analyzer/analyze-schema parser/parse-schema)))
 
@@ -71,20 +88,26 @@
   (resolve! [_ _]
     ((rand-nth [->Cat ->Dog]) name)))
 
+(defrecord Combine [id int string float bool enum]
+  data/Resolvable
+  (resolve! [this _]
+    (into {} this)))
+
 ;; ## Root
 
 (def QueryRoot
   {:me         (->Person "Me")
-   :all-people (->AllPeople)})
+   :all-people (->AllPeople)
+   :combine    (map->Combine {})})
 
 ;; ## Execute
 
 (def execute!
   (let [f (claro/executor
-          {:schema schema
-           :query  QueryRoot})]
-    (fn [query & [context]]
-      (->> query
-           (parse)
-           (canonicalize)
-           (f context)))))
+            {:schema schema
+             :query  QueryRoot})]
+    (fn [query & [variables]]
+      (as-> query <>
+        (parse <>)
+        (canonicalize <> nil variables)
+        (f {} <>)))))
