@@ -115,6 +115,8 @@
      customise translation of special keys,
    - `:directives`: a map associating directive names (without `@`) with
      projection transformation functions.
+   - `:scalars`: a map associating scalar type names with a map of `:encode`
+     and `:decode` functions.
 
    Internally, a projection is generated from the query. `:directives`
    will be used to customize said projection. For example, the `@skip` directive
