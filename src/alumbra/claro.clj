@@ -54,7 +54,7 @@
   (-> opts
       (assoc :key-fn (wrap-key-fn keys/generate-key))
       (update :query add-introspection-resolvables schema)
-      (update :directive-handlers directives/merge-defaults)))
+      (update :directives directives/merge-defaults)))
 
 ;; ## Execution
 
@@ -113,10 +113,10 @@
 
    - `:wrap-key-fn`: a wrapper for the key generation function, allowing you to
      customise translation of special keys,
-   - `:directive-handlers`: a map associating directive names (without `@`) with
+   - `:directives`: a map associating directive names (without `@`) with
      projection transformation functions.
 
-   Internally, a projection is generated from the query. `:directive-handlers`
+   Internally, a projection is generated from the query. `:directives`
    will be used to customize said projection. For example, the `@skip` directive
    could be implemented as follows:
 

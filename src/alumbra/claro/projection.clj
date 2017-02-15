@@ -10,10 +10,10 @@
 
 (defn- process-directive
   "Alter the currently processed projection using the given directive."
-  [{:keys [directive-handlers] :as opts}
+  [{:keys [directives] :as opts}
    projection
    {:keys [directive-name arguments]}]
-  (if-let [directive-fn (get directive-handlers directive-name)]
+  (if-let [directive-fn (get directives directive-name)]
     (->> arguments
          (v/process-arguments opts)
          (directive-fn projection))
