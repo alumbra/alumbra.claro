@@ -3,6 +3,7 @@
              [properties :as prop]
              [generators :as gen]
              [clojure-test :refer [defspec]]]
+            [camel-snake-kebab.core :as csk]
             [claro.data :as data]
             [alumbra.claro.fixtures :as fix]))
 
@@ -11,89 +12,105 @@
 (def schema
   (fix/schema
     "enum Emotion { HAPPY HAPPIER THE_HAPPIEST }
-     type Combined {
-       id: ID!
-       int: Int!
-       string: String!
-       float: Float!
-       bool: Boolean!
-       enum: Emotion!
-     }
      type QueryRoot {
-       combine(
-         id: ID!,
-         int: Int!,
-         string: String!,
-         float: Float!
-         bool: Boolean!
-         enum: Emotion!
-       ): Combined!
+       asId(v: ID!): ID!
+       asInt(v: Int!): Int!
+       asString(v: String!): String!
+       asFloat(v: Float!): Float!
+       asBool(v: Boolean!): Boolean!
+       asEnum(v: Emotion!): Emotion
      }
      schema { query: QueryRoot }"))
 
 ;; ## Test Resolvables
 
-(defrecord Combine [id int string float bool enum]
+(defrecord Identity [v pred]
   data/Resolvable
   (resolve! [this _]
-    (into {} this)))
-
-(def QueryRoot
-  {:combine    (map->Combine {})})
+    (when (pred v)
+      v)))
 
 ;; ## Generators
 
-(def graphql-id
-  (gen/one-of
-    [gen/string-alphanumeric
-     gen/pos-int]))
+(defn- coerceable
+  [data gen]
+  (gen/fmap
+    #(assoc data
+            :query-field (csk/->camelCaseString (:field data))
+            :value %)
+    gen))
 
-(def graphql-float
-  (gen/one-of
-    [gen/int
-     (gen/double* {:infinite? false, :NaN? false})]))
+(def coerceable-id
+  (coerceable
+    {:field         :as-id
+     :input-valid?  string?
+     :output-valid? string?}
+    (gen/one-of
+      [gen/string-alphanumeric
+       gen/pos-int])))
 
-(def graphql-string
-  (gen/one-of
-    [graphql-id
-     graphql-float
-     gen/boolean]))
+(def coerceable-int
+  (coerceable
+    {:field         :as-int
+     :input-valid?  integer?
+     :output-valid? integer?}
+    gen/int))
 
-;; # #Tests
+(def coerceable-bool
+  (coerceable
+    {:field         :as-bool
+     :input-valid?  boolean?
+     :output-valid? boolean?}
+    gen/boolean))
+
+(def gen-float
+  (gen/double* {:infinite? false, :NaN? false}))
+
+(def coerceable-float
+  (coerceable
+    {:field         :as-float
+     :input-valid?  float?
+     :output-valid? float?}
+    (gen/one-of
+      [gen/int
+       gen-float])))
+
+(def coerceable-string
+  (coerceable
+    {:field         :as-string
+     :input-valid?  string?
+     :output-valid? string?}
+    (gen/one-of
+      [gen/string-alphanumeric
+       gen/pos-int
+       gen-float
+       gen/boolean])))
+
+(def coerceable-enum
+  (coerceable
+    {:field :as-enum
+     :input-valid? #{:happy :happier :the-happiest}
+     :output-valid? #{"HAPPY" "HAPPIER" "THE_HAPPIEST"}}
+    (gen/elements '[HAPPY HAPPIER THE_HAPPIEST])))
+
+;; ## Tests
 
 (defspec t-coercion 100
-  (let [execute! (fix/execute-fn
-                   {:schema schema
-                    :query  QueryRoot})]
-    (prop/for-all
-      [id     graphql-id
-       int    gen/int
-       string graphql-string
-       float  graphql-float
-       bool   gen/boolean
-       enum   (gen/elements ["HAPPY" "HAPPIER" "THE_HAPPIEST"])]
-      (let [result (execute!
-                     "query (
-                        $id: ID!, $int: Int!, $string: String!,
-                        $float: Float!, $bool: Boolean!, $enum: Emotion!
-                      ) {
-                        combine(
-                          id: $id, int: $int, string: $string,
-                          float: $float, bool: $bool, enum: $enum
-                        ) {
-                          id, int, string, float, bool, enum
-                        }
-                      }"
-                     {"id"     id
-                      "string" string
-                      "int"    int
-                      "float"  float
-                      "bool"   bool
-                      "enum"   enum})]
-        (= {"id"         (str id)
-            "int"        int
-            "string"(str string)
-            "float"      (double float)
-            "bool"       bool
-            "enum"       enum}
-           (get-in result [:data "combine"]))))))
+  (prop/for-all
+    [{:keys [field query-field input-valid? output-valid? value]}
+     (gen/one-of [coerceable-id
+                  coerceable-int
+                  coerceable-string
+                  coerceable-float
+                  coerceable-bool
+                  coerceable-enum])]
+    (let [execute! (fix/execute-fn
+                     {:schema schema
+                      :query  {field (->Identity nil input-valid?)}})
+          result (-> (format
+                       "{ result: %s (v: %s) }"
+                       query-field
+                       (pr-str value))
+                     (execute!)
+                     (get-in [:data "result"]))]
+      (output-valid? result))))
