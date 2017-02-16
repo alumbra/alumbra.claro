@@ -2,6 +2,7 @@
   (:require [alumbra.claro
              [coercion :as c]
              [values :as v]]
+            [claro.data.ops :as ops]
             [claro.projection :as projection]))
 
 (declare block->projection)
@@ -65,7 +66,7 @@
 (defn- coerced-leaf
   [opts  {:keys [type-name]}]
   (if-let [coercer (c/output-coercer opts type-name)]
-    (projection/transform coercer projection/leaf)
+    (projection/prepare #(ops/then % coercer) projection/leaf)
     projection/leaf))
 
 (defn- field-spec->projection

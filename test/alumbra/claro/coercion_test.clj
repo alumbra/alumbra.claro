@@ -156,3 +156,20 @@
                                 (upgrade-happiness)
                                 (csk/->SCREAMING_SNAKE_CASE_STRING))]
         (= result expected-result)))))
+
+(defspec t-custom-complex-value-coercion 100
+  (let [decode       #(hash-map :emotion-value %)
+        encode       :emotion-value
+        input-valid? #(contains? % :emotion-value)]
+    (prop/for-all
+      [{:keys [field query-field value output-valid?]} coerceable-enum]
+      (let [execute! (fix/execute-fn
+                       {:schema schema
+                        :query  {field (->Identity nil input-valid?)}
+                        :scalars {"Emotion" {:encode encode, :decode decode}}})
+            result (-> (format "{ result: %s (v: %s) }"
+                               query-field
+                               (pr-str value))
+                       (execute!)
+                       (get-in [:data "result"]))]
+        (output-valid? result)))))
