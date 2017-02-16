@@ -114,3 +114,45 @@
                      (execute!)
                      (get-in [:data "result"]))]
       (output-valid? result))))
+
+(defspec t-custom-scalar-coercion 100
+  (let [encode-id #(str "id:" %)
+        decode-id #(let [s (str %)]
+                     (if (.startsWith s "id:")
+                       (subs s 3)
+                       s))
+        input-valid? #(not (.startsWith % "id:"))]
+    (prop/for-all
+      [{:keys [field query-field value]} coerceable-id]
+      (let [execute! (fix/execute-fn
+                       {:schema schema
+                        :query  {field (->Identity nil input-valid?)}
+                        :scalars {"ID" {:encode encode-id
+                                        :decode decode-id}}})
+            id (str "id:" value)
+            result (-> (format "{ result: %s (v: %s) }"
+                               query-field
+                               (pr-str id))
+                       (execute!)
+                       (get-in [:data "result"]))]
+        (= result id)))))
+
+(defspec t-custom-enum-coercion 100
+  (let [upgrade-happiness {"HAPPY"        :happier
+                           "HAPPIER"      :the-happiest
+                           "THE_HAPPIEST" :the-happiest}]
+    (prop/for-all
+      [{:keys [field query-field input-valid? value]} coerceable-enum]
+      (let [execute! (fix/execute-fn
+                       {:schema schema
+                        :query  {field (->Identity nil input-valid?)}
+                        :scalars {"Emotion" {:decode upgrade-happiness}}})
+            result (-> (format "{ result: %s (v: %s) }"
+                               query-field
+                               (pr-str value))
+                       (execute!)
+                       (get-in [:data "result"]))
+            expected-result (-> (str value)
+                                (upgrade-happiness)
+                                (csk/->SCREAMING_SNAKE_CASE_STRING))]
+        (= result expected-result)))))
