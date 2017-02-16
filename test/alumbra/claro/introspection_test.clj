@@ -2,6 +2,17 @@
   (:require [alumbra.claro.fixtures :as fix]
             [clojure.test :refer :all]))
 
+(def schema
+  (fix/schema
+    "type Person { name: String!, pets: [Pet!] }
+     interface Pet { name: String! }
+     type HouseCat implements Pet { name: String!, owner: Person!, meowVolume: Int }
+     type HouseDog implements Pet { name: String!, owner: Person!, barkVolume: Int }
+     type Cat implements Pet { name: String!, meowVolume: Int }
+     type Dog implements Pet { name: String!, barkVolume: Int }
+     type QueryRoot { me: Person!, allPeople: [Person!] }
+     schema { query: QueryRoot }"))
+
 (def ^:private graphiql-introspection-query
   "query {
      __schema {
@@ -93,7 +104,8 @@
    }")
 
 (deftest t-introspection-query
-  (let [{:keys [data]} (fix/execute! graphiql-introspection-query)
+  (let [execute! (fix/execute-fn {:schema schema, :query {}})
+        {:keys [data]} (execute! graphiql-introspection-query)
         {:strs [__schema]} data
         {:strs [queryType mutationType subscriptionType types directives]} __schema]
     (is (map? data))
@@ -101,8 +113,8 @@
     (is (= {"name" "QueryRoot"} queryType))
     (is (nil? mutationType))
     (is (nil? subscriptionType))
-    (is (= #{"Boolean" "Cat" "Dog" "Emotion" "Float" "HouseCat"
-             "HouseDog" "ID" "Int" "Person" "Pet" "Combined"
+    (is (= #{"Boolean" "Cat" "Dog" "Float" "HouseCat"
+             "HouseDog" "ID" "Int" "Person" "Pet"
              "QueryRoot" "String" "__Directive" "__DirectiveLocation"
              "__EnumValue" "__Field" "__InputValue" "__Schema"
              "__Type" "__TypeKind"}
