@@ -6,43 +6,56 @@
 
 ;; ## Resolvables
 
+(defn- by-name
+  [{:keys [::introspection]} k values]
+  (map
+    (fn [{:keys [name]}]
+      (get-in introspection [k name]))
+    values))
+
+(defn- process-deprecated
+  [include? values]
+  (if-not include?
+    (map #(vec (remove :is-deprecated %)) values)
+    values))
+
 (defrecord Type [name]
   data/PureResolvable
   data/Resolvable
-  (resolve! [_ {:keys [::introspection]}]
-    (get-in introspection [:types name])))
+  data/BatchedResolvable
+  (resolve-batch! [_ env types]
+    (by-name env :types types)))
 
 (defrecord Directive [name]
   data/PureResolvable
   data/Resolvable
-  (resolve! [_ {:keys [::introspection]}]
-    (get-in introspection [:directives name])))
+  data/BatchedResolvable
+  (resolve-batch! [_ env directives]
+    (by-name env :directives directives)))
 
 (defrecord EnumValues [name include-deprecated]
   data/PureResolvable
   data/Resolvable
-  (resolve! [_ {:keys [::introspection]}]
-    (seq
-      (let [values (get-in introspection [:enum-values name])]
-        (if-not include-deprecated
-          (remove :is-deprecated values)
-          values)))))
+  data/BatchedResolvable
+  (resolve-batch! [_ env enum-values]
+    (->> (by-name env :enum-values enum-values)
+         (process-deprecated include-deprecated))))
 
 (defrecord Fields [name include-deprecated]
   data/PureResolvable
   data/Resolvable
-  (resolve! [_ {:keys [::introspection]}]
-    (seq
-      (let [fields (get-in introspection [:fields name])]
-        (if-not include-deprecated
-          (remove :is-deprecated fields)
-          fields)))))
+  data/BatchedResolvable
+  (resolve-batch! [_ env fields]
+    (->> (by-name env :fields fields)
+         (process-deprecated include-deprecated))))
 
 (defrecord Schema []
   data/PureResolvable
   data/Resolvable
-  (resolve! [_ {:keys [::introspection]}]
-    (get introspection :schema)))
+  data/BatchedResolvable
+  (resolve-batch! [_ {:keys [::introspection]} schemas]
+    (repeat (count schemas)
+            (get introspection :schema))))
 
 ;; ## Introspection
 
