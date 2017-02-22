@@ -158,3 +158,38 @@
               :let [field-names (map #(get % "name") fields)]]
         (is (= (sort field-names) field-names)
             (str "fields not sorted for type: " name))))))
+
+(deftest t-deprecation
+  (let [schema (fix/schema
+                 "type Dep {
+                    id: ID!
+                    name @deprecated: String!,
+                    petNames @deprecated(reason: \"dunno\"): [String!]
+                  }
+                  type QueryRoot { dep: Dep }
+                  schema { query: QueryRoot }")
+        execute! (fix/execute-fn {:schema schema, :query {}})]
+    (testing "includeDeprecated: false"
+      (is (= [{"name" "id"}]
+             (-> "{ __type(name: \"Dep\") { fields { name } } }"
+                 (execute!)
+                 (get-in [:data "__type" "fields"])))))
+    (testing "includeDeprecated: true"
+      (let [fields (-> "{
+                          __type(name: \"Dep\") {
+                            fields(includeDeprecated: true) {
+                              name
+                              isDeprecated
+                              deprecationReason
+                            }
+                          }
+                        }"
+                       (execute!)
+                       (get-in [:data "__type" "fields"]))
+            field->deprecation
+            (->> (for [{:strs [name isDeprecated deprecationReason]} fields]
+                   [name [isDeprecated deprecationReason]])
+                 (into {}))]
+        (is (= [false nil] (field->deprecation "id")))
+        (is (= [true nil] (field->deprecation "name")))
+        (is (= [true "dunno"] (field->deprecation "petNames")))))))

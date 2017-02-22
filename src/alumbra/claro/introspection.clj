@@ -127,19 +127,27 @@
 
 ;; ### Fields
 
+(defn- deprecation-fields
+  [{:keys [inline-directives]}]
+  (if-let [{:strs [reason]} (get inline-directives "deprecated")]
+    {:is-deprecated true
+     :deprecation-reason reason}
+    {:is-deprecated false
+     :deprecation-reason nil}))
+
 (defn- introspect-fields
   [{:keys [types interfaces union-types]}]
   (->> (for [[name {:keys [fields]}] (merge types interfaces union-types)]
          (->> (vals (dissoc fields "__typename"))
               (map
-                (fn [{:keys [field-name arguments type-description]}]
-                  {:__typename         "__Field"
-                   :name               field-name
-                   :description        nil
-                   :args               (as-arguments (vals arguments))
-                   :type               (as-nested-type type-description)
-                   :is-deprecated      false
-                   :deprecation-reason nil}))
+                (fn [{:keys [field-name arguments type-description] :as field}]
+                  (merge
+                    {:__typename         "__Field"
+                     :name               field-name
+                     :description        nil
+                     :args               (as-arguments (vals arguments))
+                     :type               (as-nested-type type-description)}
+                    (deprecation-fields field))))
               (sort-by :name)
               (vector name)))
        (into {})))
