@@ -93,15 +93,20 @@
           :else
           (->Type type-name))))
 
+(defn- add-description
+  [{:keys [inline-directives]} value]
+  (->> (get-in inline-directives ["doc" "text"])
+       (assoc value :description)))
+
 (defn- as-argument
   [argument]
   (let [{:keys [argument-name type-description]} argument]
-    {:__typename    "__InputValue"
-     :name          argument-name
-     :description   nil
-     :type          (as-nested-type type-description)
-     ;; FIXME: default value for arguments
-     :default-value nil}))
+    (->> {:__typename    "__InputValue"
+          :name          argument-name
+          :type          (as-nested-type type-description)
+          ;; FIXME: default value for arguments
+          :default-value nil}
+         (add-description argument))))
 
 (defn- as-arguments
   [arguments]
@@ -111,10 +116,9 @@
 
 (defn- introspect-directives
   [{:keys [directives]}]
-  (->> (for [[name {:keys [directive-locations arguments]}] directives]
+  (->> (for [[name {:keys [directive-locations arguments] :as directive}] directives]
          (->> {:__typename  "__Directive"
                :name        name
-               :description nil
                :locations   (mapv
                               (fn [location]
                                 (-> (clojure.core/name location)
@@ -122,6 +126,7 @@
                                     (string/upper-case)))
                               directive-locations)
                :args        (as-arguments (vals arguments))}
+              (add-description directive)
               (vector name)))
        (into {})))
 
@@ -141,13 +146,12 @@
          (->> (vals (dissoc fields "__typename"))
               (map
                 (fn [{:keys [field-name arguments type-description] :as field}]
-                  (merge
-                    {:__typename         "__Field"
-                     :name               field-name
-                     :description        nil
-                     :args               (as-arguments (vals arguments))
-                     :type               (as-nested-type type-description)}
-                    (deprecation-fields field))))
+                  (->> {:__typename         "__Field"
+                        :name               field-name
+                        :args               (as-arguments (vals arguments))
+                        :type               (as-nested-type type-description)}
+                       (add-description field)
+                       (merge (deprecation-fields field)))))
               (sort-by :name)
               (vector name)))
        (into {})))
@@ -156,13 +160,13 @@
 
 (defn- introspect-enum-values
   [{:keys [enums]}]
-  (->> (for [[name {:keys [enum-values]}] enums]
+  (->> (for [[name {:keys [enum-values] :as enum}] enums]
          (->> (for [v enum-values]
-                {:__typename         "__EnumValue"
-                 :name               v
-                 :description        nil
-                 :is-deprecated      false
-                 :deprecation-reason nil})
+                (->> {:__typename         "__EnumValue"
+                      :name               v
+                      :is-deprecated      false
+                      :deprecation-reason nil}
+                     (add-description enum)))
               (vector name)))
        (into {})))
 
@@ -170,21 +174,25 @@
 
 (defn as-interface-type
   [schema name]
-  (let [{:keys [fields implemented-by]} (get-in schema [:interfaces name])]
-    (make-type-map
-      {:name           name
-       :kind           :interface
-       :fields         (->Fields name nil)
-       :possible-types (mapv ->Type implemented-by)})))
+  (let [{:keys [fields implemented-by] :as interface}
+        (get-in schema [:interfaces name])]
+    (->> {:name           name
+          :kind           :interface
+          :fields         (->Fields name nil)
+          :possible-types (mapv ->Type implemented-by)}
+         (add-description interface)
+         (make-type-map))))
 
 (defn- as-object-type
   [schema name]
-  (let [{:keys [fields implements]} (get-in schema [:types name])]
-    (make-type-map
-      {:name       name
-       :kind       :object
-       :fields     (->Fields name nil)
-       :interfaces (mapv ->Type implements)})))
+  (let [{:keys [fields implements] :as type}
+        (get-in schema [:types name])]
+    (->> {:name       name
+          :kind       :object
+          :fields     (->Fields name nil)
+          :interfaces (mapv ->Type implements)}
+         (add-description type)
+         (make-type-map))))
 
 (defn- as-union-type
   [schema name]
@@ -197,36 +205,40 @@
 (defn- as-input-type-fields
   [fields]
   (map
-    (fn [{:keys [field-name type-description]}]
-      {:__typename    "__InputValue"
-       :name          field-name
-       :description   nil
-       :type          (as-nested-type type-description)
-       ;; FIXME: default value for arguments
-       :default-value nil})
+    (fn [{:keys [field-name type-description] :as field}]
+      (->> {:__typename    "__InputValue"
+            :name          field-name
+            :type          (as-nested-type type-description)
+            ;; FIXME: default value for arguments
+            :default-value nil}
+           (add-description field)))
     fields))
 
 (defn- as-input-type
   [schema name]
-  (let [{:keys [fields]} (get-in schema [:input-types name])]
-    (make-type-map
-      {:name         name
-       :kind         :input-object
-       :input-fields (as-input-type-fields (vals fields))})))
+  (let [{:keys [fields] :as type} (get-in schema [:input-types name])]
+    (->> {:name         name
+          :kind         :input-object
+          :input-fields (as-input-type-fields (vals fields))}
+         (add-description type)
+         (make-type-map))))
 
 (defn- as-scalar-type
-  [_ name]
-  (make-type-map
-    {:name name
-     :kind :scalar}))
+  [schema name]
+  (let [scalar (get-in schema [:scalars name])]
+    (->> {:name name
+          :kind :scalar}
+         (add-description scalar)
+         (make-type-map))))
 
 (defn- as-enum-type
   [schema name]
-  (let [{:keys [enum-values]} (get-in schema [:enums name])]
-    (make-type-map
-      {:name        name
-       :kind        :enum
-       :enum-values (->EnumValues name nil)})))
+  (let [{:keys [enum-values] :as enum} (get-in schema [:enums name])]
+    (->> {:name        name
+          :kind        :enum
+          :enum-values (->EnumValues name nil)}
+         (add-description enum)
+         (make-type-map))))
 
 (defn- introspect-types
   [{:keys [type->kind] :as schema}]

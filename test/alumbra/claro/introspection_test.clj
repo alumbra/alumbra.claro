@@ -149,7 +149,7 @@
         (is (string? name))))
 
     (testing "directives are exposed."
-      (is (= #{"skip" "include" "deprecated"}
+      (is (= #{"skip" "include" "deprecated" "doc"}
              (set (map #(get % "name") directives)))))
 
     (testing "fields are sorted."
@@ -193,3 +193,40 @@
         (is (= [false nil] (field->deprecation "id")))
         (is (= [true nil] (field->deprecation "name")))
         (is (= [true "dunno"] (field->deprecation "petNames")))))))
+
+(deftest t-description
+  (let [schema (fix/schema
+                 "type Desc @doc(text: \"an object\") {
+                    id: ID!
+                    name @doc(text: \"a field\"): String!
+                    echo(x @doc(text: \"an argument\"): Int): Int
+                  }
+                  type QueryRoot { dep: Dep }
+                  schema { query: QueryRoot }")
+        execute! (fix/execute-fn {:schema schema, :query {}})
+        result   (-> "{
+                        __type(name: \"Desc\") {
+                          description
+                          fields {
+                            name
+                            description
+                            args { name description }
+                          }
+                        }
+                      }"
+                     (execute!)
+                     (get-in [:data "__type"]))]
+    (is (= "an object" (get result "description")))
+    (is (= {"id"   nil
+            "echo" nil
+            "name" "a field"}
+           (->> (get result "fields")
+                (map (juxt #(get % "name") #(get % "description")))
+                (into {}))))
+    (is (= {"x" "an argument"}
+           (->> (get result "fields")
+                (some
+                  #(when (= (get % "name") "echo")
+                     (get % "args")))
+                (map (juxt #(get % "name") #(get % "description")))
+                (into {}))))))
