@@ -4,44 +4,49 @@
             [claro.projection :as projection]
             [clojure.string :as string]))
 
-;; TODO:
-;; There is a bit of a performance gain to be had if we generate the maps for
-;; the single types beforehand and just to a simple lookup within the 'Type'
-;; resolvable.
+;; ## Resolvables
 
-(declare ->Directive ->EnumValues ->Fields ->Type as-nested-type)
+(defrecord Type [name]
+  data/PureResolvable
+  data/Resolvable
+  (resolve! [_ {:keys [::introspection]}]
+    (get-in introspection [:types name])))
 
-;; ## Schema
+(defrecord Directive [name]
+  data/PureResolvable
+  data/Resolvable
+  (resolve! [_ {:keys [::introspection]}]
+    (get-in introspection [:directives name])))
 
-(defn- type-for-operation
-  [schema k]
-  (some-> schema
-          (get-in [:schema-root :schema-root-types k])
-          (->Type)))
+(defrecord EnumValues [name include-deprecated]
+  data/PureResolvable
+  data/Resolvable
+  (resolve! [_ {:keys [::introspection]}]
+    (seq
+      (let [values (get-in introspection [:enum-values name])]
+        (if-not include-deprecated
+          (remove :is-deprecated values)
+          values)))))
 
-(defn- build-schema-record
-  [{:keys [type->kind directives] :as schema}]
-  {:__typename        "__Schema"
-   :types             (vec
-                        (keep
-                          (fn [[type-name kind]]
-                            (when (not= kind :directive)
-                              (->Type type-name)))
-                          type->kind))
-   :directives        (mapv #(apply ->Directive %) directives)
-   :query-type        (type-for-operation schema "query")
-   :mutation-type     (type-for-operation schema "mutation")
-   :subscription-type (type-for-operation schema "subscription")})
+(defrecord Fields [name include-deprecated]
+  data/PureResolvable
+  data/Resolvable
+  (resolve! [_ {:keys [::introspection]}]
+    (seq
+      (let [fields (get-in introspection [:fields name])]
+        (if-not include-deprecated
+          (remove :is-deprecated fields)
+          fields)))))
 
 (defrecord Schema []
   data/PureResolvable
   data/Resolvable
-  (resolve! [_ {:keys [::schema]}]
-    (build-schema-record schema)))
+  (resolve! [_ {:keys [::introspection]}]
+    (get introspection :schema)))
 
-;; ## Types
+;; ## Introspection
 
-;; ### Base Map
+;; ### Helpers
 
 (defn- make-type-map
   [values]
@@ -56,8 +61,6 @@
      :input-fields   nil
      :of-type        nil}
     values))
-
-;; ### Nested Types (Non-Null and List)
 
 (defn- as-nested-type
   [nested-type-description]
@@ -77,8 +80,6 @@
           :else
           (->Type type-name))))
 
-;; ### Arguments
-
 (defn- as-argument
   [argument]
   (let [{:keys [argument-name type-description]} argument]
@@ -93,76 +94,84 @@
   [arguments]
   (mapv as-argument arguments))
 
+;; ### Directives
+
+(defn- introspect-directives
+  [{:keys [directives]}]
+  (->> (for [[name {:keys [directive-locations arguments]}] directives]
+         (->> {:__typename  "__Directive"
+               :name        name
+               :description nil
+               :locations   (mapv
+                              (fn [location]
+                                (-> (clojure.core/name location)
+                                    (string/replace "-" "_")
+                                    (string/upper-case)))
+                              directive-locations)
+               :args        (as-arguments (vals arguments))}
+              (vector name)))
+       (into {})))
+
 ;; ### Fields
 
-(defn- as-field
-  [field]
-  (let[{:keys [field-name type-description arguments]} field]
-    {:__typename         "__Field"
-     :name               field-name
-     :description        nil
-     :args               (as-arguments (vals arguments))
-     :type               (as-nested-type type-description)
-     :is-deprecated      false
-     :deprecation-reason nil}))
+(defn- introspect-fields
+  [{:keys [types interfaces union-types]}]
+  (->> (for [[name {:keys [fields]}] (merge types interfaces union-types)]
+         (->> (vals (dissoc fields "__typename"))
+              (map
+                (fn [{:keys [field-name arguments type-description]}]
+                  {:__typename         "__Field"
+                   :name               field-name
+                   :description        nil
+                   :args               (as-arguments (vals arguments))
+                   :type               (as-nested-type type-description)
+                   :is-deprecated      false
+                   :deprecation-reason nil}))
+              (sort-by :name)
+              (vector name)))
+       (into {})))
 
-(defrecord Fields [fields include-deprecated]
-  data/PureResolvable
-  data/Resolvable
-  (resolve! [_ _]
-    (when (seq fields)
-      (->> (keep
-             (fn [{:keys [field-name] :as field}]
-               (when (not= field-name "__typename")
-                 (as-field field)))
-             fields)
-           (sort-by :name)
-           (vec)))))
+;; ### Enum Values
 
-;; ### Object Types
+(defn- introspect-enum-values
+  [{:keys [enums]}]
+  (->> (for [[name {:keys [enum-values]}] enums]
+         (->> (for [v enum-values]
+                {:__typename         "__EnumValue"
+                 :name               v
+                 :description        nil
+                 :is-deprecated      false
+                 :deprecation-reason nil})
+              (vector name)))
+       (into {})))
 
-(defn- as-object-type
-  [{:keys [::schema]} name]
-  (let [{:keys [fields implements]}
-        (get-in schema [:types name])]
-    (make-type-map
-      {:name       name
-       :kind       :OBJECT
-       :fields     (->Fields (vals fields) nil)
-       :interfaces (mapv ->Type implements)})))
-
-;; ### Interface Types
+;; ### Types
 
 (defn as-interface-type
-  [{:keys [::schema]} name]
-  (let [{:keys [fields implemented-by]}
-        (get-in schema [:interfaces name])]
+  [schema name]
+  (let [{:keys [fields implemented-by]} (get-in schema [:interfaces name])]
     (make-type-map
       {:name           name
-       :kind           :INTERFACE
-       :fields         (->Fields (vals fields) nil)
+       :kind           :interface
+       :fields         (->Fields name nil)
        :possible-types (mapv ->Type implemented-by)})))
 
-;; ### Union Types
+(defn- as-object-type
+  [schema name]
+  (let [{:keys [fields implements]} (get-in schema [:types name])]
+    (make-type-map
+      {:name       name
+       :kind       :object
+       :fields     (->Fields name nil)
+       :interfaces (mapv ->Type implements)})))
 
 (defn- as-union-type
-  [{:keys [::schema]} name]
-  (let [{:keys [union-types]}
-        (get-in schema [:unions name])]
+  [schema name]
+  (let [{:keys [union-types]} (get-in schema [:unions name])]
     (make-type-map
       {:name           name
-       :kind           :UNION
+       :kind           :union
        :possible-types (mapv ->Type union-types)})))
-
-;; ### Scalar Types
-
-(defn- as-scalar-type
-  [_ name]
-  (make-type-map
-    {:name name
-     :kind :SCALAR}))
-
-;; ### Input Types
 
 (defn- as-input-type-fields
   [fields]
@@ -177,75 +186,72 @@
     fields))
 
 (defn- as-input-type
-  [{:keys [::schema]} name]
-  (let [{:keys [fields]}
-        (get-in schema [:input-types name])]
+  [schema name]
+  (let [{:keys [fields]} (get-in schema [:input-types name])]
     (make-type-map
       {:name         name
-       :kind         :INPUT_OBJECT
+       :kind         :input-object
        :input-fields (as-input-type-fields (vals fields))})))
 
-;; ### Enum Types
-
-(defrecord EnumValues [enum-values include-deprecated]
-  data/PureResolvable
-  data/Resolvable
-  (resolve! [_ _]
-    (when (seq enum-values)
-      (mapv
-        (fn [v]
-          {:__typename         "__EnumValue"
-           :name               v
-           :description        nil
-           :is-deprecated      false
-           :deprecation-reason nil})
-        enum-values))))
+(defn- as-scalar-type
+  [_ name]
+  (make-type-map
+    {:name name
+     :kind :scalar}))
 
 (defn- as-enum-type
-  [{:keys [::schema]} name]
+  [schema name]
   (let [{:keys [enum-values]} (get-in schema [:enums name])]
     (make-type-map
       {:name        name
-       :kind        :ENUM
-       :enum-values (->EnumValues enum-values nil)})))
+       :kind        :enum
+       :enum-values (->EnumValues name nil)})))
 
-;; ### Dispatch Resolvable
+(defn- introspect-types
+  [{:keys [type->kind] :as schema}]
+  (->> (for [[type-name kind] type->kind]
+         (->> (case kind
+                :type       (as-object-type schema type-name)
+                :interface  (as-interface-type schema type-name)
+                :union      (as-union-type schema type-name)
+                :scalar     (as-scalar-type schema type-name)
+                :enum       (as-enum-type schema type-name)
+                :input-type (as-input-type schema type-name)
+                nil)
+              (vector type-name)))
+       (into {})))
 
-(defn dispatch-type-record
-  [{:keys [::schema] :as env} type-name]
-  (let [{:keys [type->kind]} schema]
-    (case (type->kind type-name)
-      :type       (as-object-type env type-name)
-      :interface  (as-interface-type env type-name)
-      :union      (as-union-type env type-name)
-      :scalar     (as-scalar-type env type-name)
-      :enum       (as-enum-type env type-name)
-      :input-type (as-input-type env type-name)
-      nil)))
+;; ### Schema Record
 
-(defrecord Type [name]
-  data/PureResolvable
-  data/Resolvable
-  (resolve! [_ env]
-    (dispatch-type-record env name)))
+(defn- type-for-operation
+  [schema k]
+  (some-> schema
+          (get-in [:schema-root :schema-root-types k])
+          (->Type)))
 
-;; ## Directives
+(defn- introspect-schema
+  [{:keys [type->kind directives] :as schema}]
+  {:__typename        "__Schema"
+   :types             (vec
+                        (keep
+                          (fn [[type-name kind]]
+                            (when (not= kind :directive)
+                              (->Type type-name)))
+                          type->kind))
+   :directives        (mapv #(->Directive %) (keys directives))
+   :query-type        (type-for-operation schema "query")
+   :mutation-type     (type-for-operation schema "mutation")
+   :subscription-type (type-for-operation schema "subscription")})
 
-(defrecord Directive [name directive]
-  data/PureResolvable
-  data/Resolvable
-  (resolve! [_ _]
-    (let [{:keys [directive-locations arguments]} directive]
-      {:__typename  "__Directive"
-       :name        name
-       :description nil
-       :locations   (mapv
-                      (fn [location]
-                        (-> (clojure.core/name location)
-                            (string/replace "-" "_")
-                            (string/upper-case)))
-                      directive-locations)
-       :args        (as-arguments (vals arguments))})))
+;; ### Introspection Map
+
+(defn- introspect
+  [schema]
+  {:directives  (introspect-directives schema)
+   :fields      (introspect-fields schema)
+   :enum-values (introspect-enum-values schema)
+   :types       (introspect-types schema)
+   :schema      (introspect-schema schema)})
 
 ;; ## Middleware
 
@@ -259,14 +265,17 @@
   "Wrap the given engine to allow usage of [[->Schema]] and [[->Type]]
    resolvables for GraphQL schema introspection.
 
-   `analyzed-schema` has to conform to `:::schema`."
+   `analyzed-schema` has to conform to `:alumbra/analyzed-schema`."
   [engine analyzed-schema]
-  (let [schema (strip-introspection-fields analyzed-schema)]
+  (let [schema (strip-introspection-fields analyzed-schema)
+        introspection (introspect schema)]
     (->> (fn [resolver]
            (fn [env batch]
-             (if (#{Schema Type Directive} (class (first batch)))
+             (if (contains?
+                   #{Schema Type Fields Directive EnumValues}
+                   (class (first batch)))
                (resolver
-                 (assoc env ::schema schema)
+                 (assoc env ::introspection introspection)
                  batch)
                (resolver env batch))))
          (engine/wrap engine))))

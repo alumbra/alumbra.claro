@@ -124,6 +124,30 @@
                "__Type" "__TypeKind"}
              (set (map #(get % "name") types)))))
 
+    (testing "kinds are correct."
+      (let [kind->count (frequencies (map #(get % "kind") types))]
+        (is (= {"SCALAR"    5
+                "ENUM"      2
+                "INTERFACE" 1
+                "OBJECT"    12}
+               kind->count))))
+
+    (testing "object/interface/input type fields."
+      (doseq [{:strs [kind fields], type-name "name"} types
+              :when (contains? #{"OBJECT" "INPUT_TYPE" "INTERFACE"} kind)
+              :when (is (seq fields)
+                        (format "%s is missing fields." type-name))
+              {:strs [name]} fields]
+        (is (string? name))))
+
+    (testing "enum values."
+      (doseq [{:strs [kind enumValues], type-name "name"} types
+              :when (= kind "ENUM")
+              :when (is (seq enumValues)
+                        (format "%s is missing enum values." type-name))
+              {:strs [name]} enumValues]
+        (is (string? name))))
+
     (testing "directives are exposed."
       (is (= #{"skip" "include" "deprecated"}
              (set (map #(get % "name") directives)))))
