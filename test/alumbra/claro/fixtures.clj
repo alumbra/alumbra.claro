@@ -8,12 +8,15 @@
 
 (defn schema
   [schema-string]
+  {:post [(not (:alumbra/parser-errors %))]}
   (analyzer/analyze-schema
     schema-string
     parser/parse-schema))
 
-(def parse
-  #(parser/parse-document %))
+(defn parse
+  [value]
+  {:post [(not (:alumbra/parser-errors %))]}
+  (parser/parse-document value))
 
 ;; ## Execute
 
