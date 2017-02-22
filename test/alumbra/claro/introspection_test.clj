@@ -110,14 +110,27 @@
         {:strs [queryType mutationType subscriptionType types directives]} __schema]
     (is (map? data))
     (is (map? __schema))
-    (is (= {"name" "QueryRoot"} queryType))
-    (is (nil? mutationType))
-    (is (nil? subscriptionType))
-    (is (= #{"Boolean" "Cat" "Dog" "Float" "HouseCat"
-             "HouseDog" "ID" "Int" "Person" "Pet"
-             "QueryRoot" "String" "__Directive" "__DirectiveLocation"
-             "__EnumValue" "__Field" "__InputValue" "__Schema"
-             "__Type" "__TypeKind"}
-           (set (map #(get % "name") types))))
-    (is (= #{"skip" "include" "deprecated"}
-           (set (map #(get % "name") directives))))))
+
+    (testing "root types are exposed."
+      (is (= {"name" "QueryRoot"} queryType))
+      (is (nil? mutationType))
+      (is (nil? subscriptionType)))
+
+    (testing "all other types are exposed."
+      (is (= #{"Boolean" "Cat" "Dog" "Float" "HouseCat"
+               "HouseDog" "ID" "Int" "Person" "Pet"
+               "QueryRoot" "String" "__Directive" "__DirectiveLocation"
+               "__EnumValue" "__Field" "__InputValue" "__Schema"
+               "__Type" "__TypeKind"}
+             (set (map #(get % "name") types)))))
+
+    (testing "directives are exposed."
+      (is (= #{"skip" "include" "deprecated"}
+             (set (map #(get % "name") directives)))))
+
+    (testing "fields are sorted."
+      (doseq [{:strs [name fields]} types
+              :when fields
+              :let [field-names (map #(get % "name") fields)]]
+        (is (= (sort field-names) field-names)
+            (str "fields not sorted for type: " name))))))

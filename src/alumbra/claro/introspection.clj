@@ -111,12 +111,13 @@
   data/Resolvable
   (resolve! [_ _]
     (when (seq fields)
-      (vec
-        (keep
-          (fn [{:keys [field-name] :as field}]
-            (when (not= field-name "__typename")
-              (as-field field)))
-          fields)))))
+      (->> (keep
+             (fn [{:keys [field-name] :as field}]
+               (when (not= field-name "__typename")
+                 (as-field field)))
+             fields)
+           (sort-by :name)
+           (vec)))))
 
 ;; ### Object Types
 
