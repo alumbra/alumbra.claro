@@ -159,6 +159,14 @@
         (is (= (sort field-names) field-names)
             (str "fields not sorted for type: " name))))))
 
+(deftest t-possible-types
+  (let [execute! (fix/execute-fn {:schema schema, :query {}})
+        {:keys [data]} (execute! "{ __type(name: \"Pet\") { possibleTypes { name } } }")]
+    (is (= #{"Cat" "Dog" "HouseCat" "HouseDog"}
+           (->> (get-in data ["__type" "possibleTypes"])
+                (map #(get % "name"))
+                (set))))))
+
 (deftest t-deprecation
   (let [schema (fix/schema
                  "type Dep {
