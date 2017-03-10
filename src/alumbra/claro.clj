@@ -47,10 +47,17 @@
 
 ;; ## Options
 
+(defn- assert-schema-valid
+  [schema]
+  (assert (not (contains? schema :alumbra/parser-errors))
+          (str "schema not valid (parser error): "
+               (pr-str schema))))
+
 (defn- prepare-opts
   [{:keys [wrap-key-fn schema]
     :or {wrap-key-fn identity}
     :as opts}]
+  (assert-schema-valid schema)
   (-> opts
       (assoc :key-fn (wrap-key-fn keys/generate-key))
       (update :query add-introspection-resolvables schema)
