@@ -10,7 +10,12 @@
       (data/error
         (format "could not coerce value to '%s': %s"
                 type-name
-                (pr-str value))))))
+                (pr-str value))
+        {:value     value
+         :type-name type-name
+         :throwable (format "[%s] %s"
+                            (.getName (class t))
+                            (.getMessage t))}))))
 
 (defn- wrap-coercer-exception
   [f type-name]
@@ -52,9 +57,15 @@
 
 (defn coerce-value
   [{:keys [schema scalars]} type-name value]
-  (-> (or (get-in scalars [type-name :decode])
-          (let [{:keys [type->kind]} schema]
-            (if (= (type->kind type-name) :enum)
-              csk/->kebab-case-keyword
-              #(default-coercer type-name %))))
-      (call-coercer type-name value)))
+  (let [result (-> (or (get-in scalars [type-name :decode])
+                       (let [{:keys [type->kind]} schema]
+                         (if (= (type->kind type-name) :enum)
+                           csk/->kebab-case-keyword
+                           #(default-coercer type-name %))))
+                   (call-coercer type-name value))]
+    (if (data/error? result)
+      (throw
+        (ex-info
+          (data/error-message result)
+          (data/error-data result)))
+      result)))

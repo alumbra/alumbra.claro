@@ -3,6 +3,7 @@
              [properties :as prop]
              [generators :as gen]
              [clojure-test :refer [defspec]]]
+            [clojure.test :refer :all]
             [camel-snake-kebab.core :as csk]
             [claro.data :as data]
             [alumbra.claro.fixtures :as fix]))
@@ -173,3 +174,27 @@
                        (execute!)
                        (get-in [:data "result"]))]
         (output-valid? result)))))
+
+(deftest t-input-coercion-exception
+  (let [decode #(throw (ex-info "oops." {:value %}))
+        encode str
+        execute! (fix/execute-fn
+                   {:schema  schema
+                    :query   {:as-id (->Identity nil (constantly true))}
+                    :scalars {"ID" {:encode encode, :decode decode}}})]
+    (is (thrown-with-msg?
+          clojure.lang.ExceptionInfo
+          #"could not coerce value to 'ID'"
+          (execute! "{ asId(v: 10) }")))))
+
+(deftest t-output-coercion-exception
+  (let [decode str
+        encode #(throw (ex-info "oops." {:value %}))
+        execute! (fix/execute-fn
+                   {:schema  schema
+                    :query   {:as-id (->Identity nil (constantly true))}
+                    :scalars {"ID" {:encode encode, :decode decode}}})
+        result (is (execute! "{ asId(v: 10) }"))]
+    (is (= {"asId" nil} (:data result)))
+    (is (= "could not coerce value to 'ID': \"10\""
+           (-> result :errors first :message)))))
