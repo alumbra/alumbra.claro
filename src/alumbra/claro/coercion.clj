@@ -5,7 +5,8 @@
 (defn- call-coercer
   [f type-name value]
   (try
-    (f value)
+    (when (some? value)
+      (f value))
     (catch Throwable t
       (data/error
         (format "could not coerce value to '%s': %s"
