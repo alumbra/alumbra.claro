@@ -2,6 +2,7 @@
   (:require [alumbra.claro
              [coercion :as c]
              [values :as v]]
+            [claro.data :as data]
             [claro.data.ops :as ops]
             [claro.projection :as projection]))
 
@@ -69,16 +70,33 @@
     (projection/prepare #(ops/then % coercer) projection/leaf)
     projection/leaf))
 
+(defn- nullable-value
+  [_ projection]
+  (projection/maybe projection))
+
+(defn- non-nullable-value
+  [{:keys [field-name type-name]} projection]
+  (projection/transform
+    (fn [value]
+      (if (nil? value)
+        (data/error
+          (format "field '%s' returned 'null' but type '%s!' is non-nullable."
+                  field-name
+                  type-name))
+        value))
+    projection))
+
 (defn- field-spec->projection
   "Generate a projection for a `:alumbra.spec.canonical-operation/field-spec`
    value."
   [opts {:keys [field-type non-null? field-spec] :as spec}]
-  (cond->
+  (cond->>
     (case field-type
       :leaf   (coerced-leaf opts spec)
       :object (block->projection opts spec)
       :list   [(field-spec->projection opts field-spec)])
-    (not non-null?) projection/maybe))
+    (not non-null?) (nullable-value spec)
+    non-null?       (non-nullable-value spec)))
 
 (defn- key-for-field
   "Generate the key for the given field. Will use `key-fn` to generate it

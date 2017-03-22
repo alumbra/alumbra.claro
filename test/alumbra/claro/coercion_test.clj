@@ -14,12 +14,13 @@
   (fix/schema
     "enum Emotion { HAPPY HAPPIER THE_HAPPIEST }
      type QueryRoot {
-       asId(v: ID!): ID!
-       asInt(v: Int!): Int!
-       asString(v: String!): String!
-       asFloat(v: Float!): Float!
-       asBool(v: Boolean!): Boolean!
+       asId(v: ID!): ID
+       asInt(v: Int!): Int
+       asString(v: String!): String
+       asFloat(v: Float!): Float
+       asBool(v: Boolean!): Boolean
        asEnum(v: Emotion!): Emotion
+       asNonNull(v: ID!): ID!
      }
      schema { query: QueryRoot }"))
 
@@ -197,4 +198,12 @@
         result (is (execute! "{ asId(v: 10) }"))]
     (is (= {"asId" nil} (:data result)))
     (is (= "could not coerce value to 'ID': \"10\""
+           (-> result :errors first :message)))))
+
+(deftest t-non-nullable-result
+  (let [execute! (fix/execute-fn
+                   {:schema schema
+                    :query  {:as-non-null (->Identity nil (constantly false))}})
+        result (is (execute! "{ asNonNull(v: 10) }"))]
+    (is (= "field 'asNonNull' returned 'null' but type 'ID!' is non-nullable."
            (-> result :errors first :message)))))
