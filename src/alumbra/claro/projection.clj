@@ -2,6 +2,7 @@
   (:require [alumbra.claro
              [coercion :as c]
              [values :as v]]
+            [flatland.ordered.map :as flatland]
             [claro.data :as data]
             [claro.data.ops :as ops]
             [claro.projection :as projection]))
@@ -124,6 +125,10 @@
   [{:keys [field-name]}]
   (some? field-name))
 
+(defn- as-ordered-map
+  [values]
+  (reduce into (flatland/ordered-map) values))
+
 (defn- selection-set->projection
   "Generate a projection for a value containing a selection set."
   [opts {:keys [selection-set]}]
@@ -133,7 +138,9 @@
                                 (field->projection opts selection)
                                 (block->projection opts selection)))
                             selection-set))]
-    (projection/merge* templates)
+    (->> templates
+         (projection/juxt*)
+         (projection/transform as-ordered-map))
     {}))
 
 ;; ## Conditional Blocks
