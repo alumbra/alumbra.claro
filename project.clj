@@ -9,7 +9,7 @@
                  [alumbra/spec "0.1.6" :scope "provided"]
                  [org.flatland/ordered "1.5.4"]
                  [camel-snake-kebab "0.4.0"]
-                 [claro "0.2.13"]]
+                 [claro "0.2.14"]]
   :profiles {:dev {:dependencies [[org.clojure/test.check "0.9.0"]
                                   [alumbra/parser "0.1.6"]
                                   [alumbra/analyzer "0.1.10"]
