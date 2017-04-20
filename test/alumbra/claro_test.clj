@@ -16,7 +16,7 @@
      type HouseDog implements Pet { name: String!, owner: Person!, barkVolume: Int }
      type Cat implements Pet { name: String!, meowVolume: Int }
      type Dog implements Pet { name: String!, barkVolume: Int }
-     type QueryRoot { me: Person!, allPeople: [Person!] }
+     type QueryRoot { me: Person!, allPeople: [Person!], error: Boolean }
      schema { query: QueryRoot }"))
 
 ;; ## Test Resolvables
@@ -70,8 +70,15 @@
   (resolve! [_ _]
     ((rand-nth [->Cat ->Dog]) name)))
 
+(defrecord SomeError []
+  data/PureResolvable
+  data/Resolvable
+  (resolve! [_ _]
+    (data/error "some error.")))
+
 (def QueryRoot
   {:me         (->Person "Me")
+   :error      (->SomeError)
    :all-people (->AllPeople)})
 
 ;; ## Tests
