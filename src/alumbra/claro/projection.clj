@@ -77,7 +77,7 @@
 
 (defn- non-nullable-value
   [{:keys [field-name type-name]} projection]
-  (projection/transform
+  (projection/transform-finite
     (fn [value]
       (if (nil? value)
         (data/error
@@ -140,7 +140,7 @@
                             selection-set))]
     (->> templates
          (projection/juxt*)
-         (projection/transform as-ordered-map))
+         (projection/transform-finite as-ordered-map))
     {}))
 
 ;; ## Conditional Blocks
