@@ -127,19 +127,31 @@
 
 (defn- as-ordered-map
   [values]
-  (reduce into (flatland/ordered-map) values))
+  (cond (empty? values)
+        {}
+
+        (= (count values) 1)
+        (val (first values))
+
+        :else
+        (->> values
+             (sort-by key)
+             (map val)
+             (reduce into (flatland/ordered-map)))))
 
 (defn- selection-set->projection
   "Generate a projection for a value containing a selection set."
   [opts {:keys [selection-set]}]
-  (if-let [templates (seq (keep
-                            (fn [selection]
-                              (if (field? selection)
-                                (field->projection opts selection)
-                                (block->projection opts selection)))
+  (if-let [templates (seq (keep-indexed
+                            (fn [index selection]
+                              (some->> (if (field? selection)
+                                         (field->projection opts selection)
+                                         (block->projection opts selection))
+                                       (projection/transform-finite
+                                         #(hash-map index %))))
                             selection-set))]
     (->> templates
-         (projection/juxt*)
+         (projection/merge*)
          (projection/transform-finite as-ordered-map))
     {}))
 
