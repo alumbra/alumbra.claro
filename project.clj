@@ -1,4 +1,4 @@
-(defproject alumbra/claro "0.1.10"
+(defproject alumbra/claro "0.1.11-SNAPSHOT"
   :description "An alumbra GraphQL executor on top of Claro."
   :url "https://github.com/alumbra/alumbra.claro"
   :license {:name "MIT License"
