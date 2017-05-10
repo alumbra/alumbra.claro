@@ -6,17 +6,22 @@
 
 ;; ## Schema
 
+(defn- assert-parseable
+  [value]
+  (when-let [errors (:alumbra/parser-errors value)]
+    (throw
+      (ex-info "parsing failed." {:errors errors})))
+  value)
+
 (defn schema
   [schema-string]
-  {:post [(not (:alumbra/parser-errors %))]}
-  (analyzer/analyze-schema
-    schema-string
-    parser/parse-schema))
+  (->> (comp assert-parseable parser/parse-schema)
+       (analyzer/analyze-schema schema-string)))
 
 (defn parse
   [value]
-  {:post [(not (:alumbra/parser-errors %))]}
-  (parser/parse-document value))
+  (assert-parseable
+    (parser/parse-document value)))
 
 ;; ## Execute
 
