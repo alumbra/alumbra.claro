@@ -44,7 +44,7 @@
   [opts {:keys [arguments]} projection]
   (if (seq arguments)
     (-> (v/process-arguments opts arguments)
-        (projection/parameters projection))
+        (projection/maybe-parameters projection))
     projection))
 
 ;; ## Type Conditions
