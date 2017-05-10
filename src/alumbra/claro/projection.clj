@@ -91,13 +91,16 @@
   "Generate a projection for a `:alumbra.spec.canonical-operation/field-spec`
    value."
   [opts {:keys [field-type non-null? field-spec] :as spec}]
-  (cond->>
-    (case field-type
-      :leaf   (coerced-leaf opts spec)
-      :object (block->projection opts spec)
-      :list   [(field-spec->projection opts field-spec)])
-    (not non-null?) (nullable-value spec)
-    non-null?       (non-nullable-value spec)))
+  (case field-type
+    :leaf   (coerced-leaf opts spec)
+    :object (block->projection opts spec)
+    :list   [(field-spec->projection opts field-spec)]))
+
+(defn- field-nullability
+  [opts {:keys [non-null?] :as spec} projection]
+  (if non-null?
+    (non-nullable-value spec projection)
+    (nullable-value spec projection)))
 
 (defn- key-for-field
   "Generate the key for the given field. Will use `key-fn` to generate it
@@ -114,6 +117,7 @@
    projection with a single key."
   [opts field]
   (some->> (field-spec->projection opts field)
+           (field-nullability opts field)
            (process-arguments opts field)
            (hash-map (key-for-field opts field))
            (process-directives opts field)))
