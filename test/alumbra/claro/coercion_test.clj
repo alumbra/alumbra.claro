@@ -185,7 +185,7 @@
                     :scalars {"ID" {:encode encode, :decode decode}}})]
     (is (thrown-with-msg?
           clojure.lang.ExceptionInfo
-          #"could not coerce value to 'ID'"
+          #"Could not coerce value to 'ID'"
           (execute! "{ asId(v: 10) }")))))
 
 (deftest t-output-coercion-exception
@@ -197,7 +197,7 @@
                     :scalars {"ID" {:encode encode, :decode decode}}})
         result (is (execute! "{ asId(v: 10) }"))]
     (is (= {"asId" nil} (:data result)))
-    (is (= "could not coerce value to 'ID': \"10\""
+    (is (= "Could not coerce value to 'ID': \"10\""
            (-> result :errors first :message)))))
 
 (deftest t-non-nullable-result
@@ -205,5 +205,5 @@
                    {:schema schema
                     :query  {:as-non-null (->Identity nil (constantly false))}})
         result (is (execute! "{ asNonNull(v: 10) }"))]
-    (is (= "field 'asNonNull' returned 'null' but type 'ID!' is non-nullable."
+    (is (= "Field 'asNonNull' returned 'null' but type 'ID!' is non-nullable."
            (-> result :errors first :message)))))

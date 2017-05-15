@@ -9,7 +9,7 @@
       (f value))
     (catch Throwable t
       (data/error
-        (format "could not coerce value to '%s': %s"
+        (format "Could not coerce value to '%s': %s"
                 type-name
                 (pr-str value))
         {:value     value

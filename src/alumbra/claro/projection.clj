@@ -81,7 +81,7 @@
     (fn [value]
       (if (nil? value)
         (data/error
-          (format "field '%s' returned 'null' but type '%s!' is non-nullable."
+          (format "Field '%s' returned 'null' but type '%s!' is non-nullable."
                   field-name
                   type-name))
         value))
