@@ -1,30 +1,39 @@
 (ns alumbra.claro.values
   (:require [alumbra.claro.coercion :as c]))
 
-(declare process-value)
+(defprotocol ClaroValue
+  (process-value [this opts]))
 
 (defn- process-key
   [{:keys [key-fn]} k]
   (key-fn k))
 
-(defn- process-object
-  [opts o]
-  (->> (for [[k v] o]
-         [(process-key opts k)
-          (process-value opts v)])
-       (into {})))
+(extend-protocol ClaroValue
+  clojure.lang.Sequential
+  (process-value [sq opts]
+    (mapv #(process-value % opts) sq))
 
-(defn- process-scalar
-  [opts {:keys [type-name value]}]
-  (c/coerce-value opts type-name value))
+  clojure.lang.IPersistentMap
+  (process-value [{:keys [type-name value] :as o} opts]
+    (if type-name
+      (c/coerce-value opts type-name value)
+      (->> (for [[k v] o]
+             [(process-key opts k)
+              (process-value v opts)])
+           (into {}))))
 
-(defn process-value
-  [opts v]
-  {:pre [(or (map? v) (sequential? v))]}
-  (cond (sequential? v) (mapv #(process-value opts %) v)
-        (:type-name v)  (process-scalar opts v)
-        :else           (process-object opts v)))
+  Object
+  (process-value [this _]
+    (throw
+      (IllegalArgumentException.
+        (str "Unexpected value when preparing arguments: "
+             (pr-str this)))))
+
+  nil
+  (process-value [_ _]
+    nil))
 
 (defn process-arguments
   [opts arguments]
-  (process-object opts arguments))
+  {:pre [(map? arguments)]}
+  (process-value arguments opts))
