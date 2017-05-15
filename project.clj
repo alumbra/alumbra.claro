@@ -12,6 +12,6 @@
                  [claro "0.2.18"]]
   :profiles {:dev {:dependencies [[org.clojure/test.check "0.9.0"]
                                   [alumbra/parser "0.1.7"]
-                                  [alumbra/analyzer "0.1.14"]
+                                  [alumbra/analyzer "0.1.15"]
                                   [alumbra/generators "0.2.2"]]}}
   :pedantic? :abort)
