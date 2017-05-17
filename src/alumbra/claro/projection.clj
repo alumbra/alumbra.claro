@@ -63,6 +63,33 @@
       projection)
     projection))
 
+;; ## Nullability
+
+(defn- nullable-value
+  [_ projection]
+  (projection/maybe projection))
+
+(defn- as-type-name-string
+  [{:keys [field-type type-name non-null? field-spec] :as x}]
+  (str
+    (if (= field-type :list)
+      (format "[%s]" (as-type-name-string field-spec))
+      type-name)
+    (if non-null? "!")))
+
+(defn- non-nullable-value
+  [{:keys [field-name] :as field} projection]
+  (let [type-name (as-type-name-string field)]
+    (projection/transform-finite
+      (fn [value]
+        (if (nil? value)
+          (data/error
+            (format "Field '%s' returned 'null' but type '%s' is non-nullable."
+                    field-name
+                    type-name))
+          value))
+      (projection/maybe projection))))
+
 ;; ## Fields
 
 (defn- coerced-leaf
@@ -70,22 +97,6 @@
   (if-let [coercer (c/output-coercer opts type-name)]
     (projection/prepare #(ops/then % coercer) projection/leaf)
     projection/leaf))
-
-(defn- nullable-value
-  [_ projection]
-  (projection/maybe projection))
-
-(defn- non-nullable-value
-  [{:keys [field-name type-name]} projection]
-  (projection/transform-finite
-    (fn [value]
-      (if (nil? value)
-        (data/error
-          (format "Field '%s' returned 'null' but type '%s!' is non-nullable."
-                  field-name
-                  type-name))
-        value))
-    projection))
 
 (defn- field-spec->projection
   "Generate a projection for a `:alumbra.spec.canonical-operation/field-spec`

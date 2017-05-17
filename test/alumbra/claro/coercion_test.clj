@@ -13,6 +13,7 @@
 (def schema
   (fix/schema
     "enum Emotion { HAPPY HAPPIER THE_HAPPIEST }
+     type Object { v: Int! }
      type QueryRoot {
        asId(v: ID!): ID
        asInt(v: Int!): Int
@@ -21,6 +22,8 @@
        asBool(v: Boolean!): Boolean
        asEnum(v: Emotion!): Emotion
        asNonNull(v: ID!): ID!
+       asNonNullList: [Object]!
+       asNonNullObject: Object!
      }
      schema { query: QueryRoot }"))
 
@@ -206,4 +209,16 @@
                     :query  {:as-non-null (->Identity nil (constantly false))}})
         result (is (execute! "{ asNonNull(v: 10) }"))]
     (is (= "Field 'asNonNull' returned 'null' but type 'ID!' is non-nullable."
+           (-> result :errors first :message))))
+  (let [execute! (fix/execute-fn
+                   {:schema schema
+                    :query  {:as-non-null-list (->Identity nil (constantly false))}})
+        result (is (execute! "{ asNonNullList }"))]
+    (is (= "Field 'asNonNullList' returned 'null' but type '[Object]!' is non-nullable."
+           (-> result :errors first :message))))
+  (let [execute! (fix/execute-fn
+                   {:schema schema
+                    :query  {:as-non-null-object (->Identity nil (constantly false))}})
+        result (is (execute! "{ asNonNullObject { v } }"))]
+    (is (= "Field 'asNonNullObject' returned 'null' but type 'Object!' is non-nullable."
            (-> result :errors first :message)))))
