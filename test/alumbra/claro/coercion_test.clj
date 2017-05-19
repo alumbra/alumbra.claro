@@ -13,7 +13,9 @@
 (def schema
   (fix/schema
     "enum Emotion { HAPPY HAPPIER THE_HAPPIEST }
-     type Object { v: Int! }
+     interface Interface { v: Int! }
+     type Object implements Interface { v: Int! }
+     union U = Object
      type QueryRoot {
        asId(v: ID!): ID
        asInt(v: Int!): Int
@@ -24,6 +26,8 @@
        asNonNull(v: ID!): ID!
        asNonNullList: [Object]!
        asNonNullObject: Object!
+       asNonNullUnion: U!
+       asNonNullInterface: Interface!
      }
      schema { query: QueryRoot }"))
 
@@ -204,21 +208,22 @@
            (-> result :errors first :message)))))
 
 (deftest t-non-nullable-result
-  (let [execute! (fix/execute-fn
+  (let [null-value (->Identity nil (constantly false))
+        execute! (fix/execute-fn
                    {:schema schema
-                    :query  {:as-non-null (->Identity nil (constantly false))}})
-        result (is (execute! "{ asNonNull(v: 10) }"))]
+                    :query  {:as-non-null           null-value
+                             :as-non-null-interface null-value
+                             :as-non-null-list      null-value
+                             :as-non-null-object    null-value
+                             :as-non-null-union     null-value}})
+        execute-error! (comp :message first :errors execute!)]
     (is (= "Field 'asNonNull' returned 'null' but type 'ID!' is non-nullable."
-           (-> result :errors first :message))))
-  (let [execute! (fix/execute-fn
-                   {:schema schema
-                    :query  {:as-non-null-list (->Identity nil (constantly false))}})
-        result (is (execute! "{ asNonNullList }"))]
+           (execute-error! "{ asNonNull(v: 10) }")))
     (is (= "Field 'asNonNullList' returned 'null' but type '[Object]!' is non-nullable."
-           (-> result :errors first :message))))
-  (let [execute! (fix/execute-fn
-                   {:schema schema
-                    :query  {:as-non-null-object (->Identity nil (constantly false))}})
-        result (is (execute! "{ asNonNullObject { v } }"))]
+           (execute-error! "{ asNonNullList { v } }")))
     (is (= "Field 'asNonNullObject' returned 'null' but type 'Object!' is non-nullable."
-           (-> result :errors first :message)))))
+           (execute-error! "{ asNonNullObject { v } }")))
+    (is (= "Field 'asNonNullUnion' returned 'null' but type 'U!' is non-nullable."
+           (execute-error! "{ asNonNullUnion { __typename } }")))
+    (is (= "Field 'asNonNullInterface' returned 'null' but type 'Interface!' is non-nullable."
+           (execute-error! "{ asNonNullInterface { __typename } }")))))
